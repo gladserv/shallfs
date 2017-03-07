@@ -1,0 +1,54 @@
+shallfsck
+---------
+
+If a device is not unmounted properly, the kernel module will automatically
+recover it so that the state is the same as the last commit.  If the device
+is damaged, this recovery may succeed but it may also fail: in this case,
+use the shallfsck program to attempt recovery.  If all else fails, you'll
+have to rebuild the device using mkshallfs (or "mkfs -t shallfs") which
+means the old logs will be lost.
+
+The program can be called using "fsck -t shallfs" and therefore can run
+automatically before local filesystems are mounted; in this case, it will
+do the same consistency checks and recovery as the kernel module, but it
+will not attempt more advanced recovery: run the program manually for that.
+
+shallfsck accepts the following options:
+
+-a
+    Same as "-p", for backward compatibility with other fsck programs.
+    Incompatible with "-f", "-n" and "-y".
+
+-b number-of-superblocks
+    The total number of superblocks; if provided, this must be the same
+    number as given to the mkshallfs program when the device was set up
+    (or as modified by tuneshallfs).
+
+-C fd
+    Prints progress information on the given file descriptor in a format
+    suitable for use by other programs; if "fd" is 0, the output will be
+    on standard output in human-readable format.
+
+-f
+    Force full consistency check of all superblocks, even if the device
+    looks like it has been unmounted correctly and is marked clean.
+    Incompatible with "-a" and "-p".
+
+-l superblock
+    Try the given superblock instead of guessing.  This is useful if
+    the device has a large number of superblocks but you know that a
+    particular one is valid.
+
+-n
+    Do not make any changes to the device, instead just report what would
+    be done to correct any problems. Incompatible with "-a", "-p" and "-y".
+
+-p
+    Run the same limited functionality as the initial fsck on boot, i.e.
+    only recover devices which could be recovered automatically by mounting.
+    Incompatible with "-f", "-n" and "-y".
+
+-y
+    Run full repair without asking any questions.  Default is to ask before
+    doing anything heavy.  Incompatible with "-a", "-n" and "-p".
+

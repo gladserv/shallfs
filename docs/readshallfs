@@ -1,0 +1,33 @@
+readshallfs
+-----------
+
+This program reads an unmounted device and shows its contents; it can
+also read "binary" logs from a mounted filesystem.
+
+Usage: readshallfs [options] DEVICE [FILE]
+
+readshallfs accepts the following options:
+
+-a  With "-l" and a FILE, append to the file rather than overwrite.
+
+-d  Print debug logs only.  Incompatible with "-l".  Please note that all
+    events are read but only debug logs printed, so if using "-m" this
+    will still result in all events to be discarded.
+
+-i  Interpret DEVICE as a regular file which contains events; this can
+    read a file produced by readshallfs when FILE was specified.
+    Incompatible with "-m" and "-s".
+
+-l  Shows all logs, or if a FILE is specified, send all logs to that file.
+    This is the default "-i".
+
+-m  Find a shallfs filesystem mounted on the path specified and use that
+    instead of reading directly from device; the path can be either the
+    mount point or the underlying filesystem. Incompatible with "-i".
+
+-s  Shows superblock information; this is the default if none of "-d",
+    "-i", "-l" or "-s" are specified; incompatible with "-i".
+
+-w  If there are no logs available, wait for new logs (default is to
+    terminate as soon as the journal becomes empty).
+

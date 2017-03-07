@@ -1,0 +1,27 @@
+config SHALL_FS
+	tristate "The shall filesystem"
+	help
+	  This is a transparent filesystem which logs all operations
+	  which may change data.
+
+	  It takes an underlying directory where the operations are
+	  performed, and a block device which will contain the logs.
+	  A userspace program is required to read and decode the logs.
+
+	  To compile this file system support as a module, choose M here.
+	  The module will be called shallfs.
+
+	  If unsure, say N.
+
+config SHALL_FS_DEBUG
+	bool "shall filesystem debugging support"
+	depends on SHALL_FS
+	help
+	  Enables run-time debugging support for the shall filesystem.
+	  This increases the noise in the kernel message buffer (dmesg)
+	  but could be useful to debug problems with the filesystem.
+	  This option just includes the code, to turn debugging output
+	  on, use the "debug=on" mount option.
+
+	  If unsure, say N.
+

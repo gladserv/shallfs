@@ -1,0 +1,33 @@
+mkshallfs
+---------
+
+Before using a device to store shallfs's journal, it must be prepared; the
+mkshallfs program does that, and also provide an interface so that
+"mkfs -t shallfs" works.
+
+mkshallfs accepts the following options:
+
+-b number-of-superblocks
+    The total number of superblocks; this must be at least 8 and at most
+    the number of superblocks which can fit on the device; if omitted,
+    it default to its maximum value.
+
+-c  Create a regular file with an image of the filesystem.  The size
+    must be specified on the command line after the device, e.g.
+	fsck -t shallfs -c DEVICE SIZE
+    this is incompatible with -n.
+
+-a alignment
+    Alignment of blocks in device; default 8; must be a power of 2 between
+    8 and 4096.
+
+-f  Force: skip check that the device is in fact a device.
+
+-n  Do not write anything, just provide the normal output.
+
+-q  Quiet execution, incompatible with "-n" as there isn't really any point
+    in running with both options.
+
+Unless "-q" is specified, the program prints the values for -a and -b (whether
+provided or calculated), and some information about the device.
+

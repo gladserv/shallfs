@@ -1,0 +1,29 @@
+* retest symlink code
+* add 4.9.* as that's the most recent LTS kernel
+* add a flag to indicate whether the logging is "once" or "twice"; can be
+  provided automatically by append_logs()
+* test the "wait for space" logic fully
+* if create returns ENOSPC things seem to hang until an interrupt?
+  -- this has now changed, but readshallfs hangs on this
+* something will eat all memory after heavy use: the oom killer comes along,
+  but memory remains in use.  It is released by umounting.  It is possible
+  that deleting inodes does not reclaim the memory immediately.
+* test poll, fsync
+* review the locking around fi->lq: do we need IRQ safe locks or is the
+  plain spin_lock enough?
+* test code with SHALL_FS_DEBUG=n
+* mkshallfs: without -f, check first block for any filesystem signature
+* readshallfs: option to add data and/or SHA checksum to each WRITE
+  and send the result to file/socket
+* readshallfs: output file rotation; maybe adding timestamp to name and
+  asking for periodic closing/reopening
+* test remount with wake_up=1 but that's quite difficult to arrange
+* mount /home with user_xattr & test listxattr, getxattr, setxattr, removexattr
+* userspace program to modify/resize device tuneshallfs
+* see if some of the operations we do on int64_t can be changed to use
+  <linux/math64.h> for faster operation on both 32 and 64 bit processors;
+  however there's no point unless it's something executed many times
+* maybe replace the memory buffer with a linked list updated using RCU
+  for lock-free operation; however RCU is weird and locks are not
+* see comments in follow_link about landing inside /fspath
+

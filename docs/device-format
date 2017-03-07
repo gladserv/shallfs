@@ -1,0 +1,68 @@
+Format of the shallfs journal device
+------------------------------------
+
+A shallfs journal device is seen as a ring buffer containing the actual
+data and a number of headers (called superblocks) describing the data;
+all superblocks contain the same information, and are stored at known
+locations in the device, so if one is damaged it is possible to recover by
+finding another one; this recovery happens automatically when mounting,
+however if that fails a userspace program may make a more determined
+attempt repair the device.
+
+While the superblocks appear in the middle of the data, the logical
+view is that of a contiguous buffer, with the superblocks location
+automatically skipped when reading and writing; the data can start at
+any location and if appropriate wrap around from the end of the device
+to the first usable location (i.e. the location after the end of the
+first superblock).
+
+The data stored in the ring buffer is a sequence of event logs, each
+one of which is described in docs/log-format.
+
+Each superblock is 4096 bytes long, however the first 3072 bytes are
+unused (this allows the device to start on block 0 of a partition, without
+overwriting the partition table), the on-disk structure is defined in
+<shallfs/device.h>; the total number of superblocks is contained in each
+superblock.
+
+Assuming a device block size of 4096, the location of superblock "n"
+within the device is given by the formula:
+
+	sb(n) = 16 * n^2 + 4 * n
+
+When mounting, the first superblock is inspected; if it is valid and
+marked clean, no further processing is required; if it is not valid
+or marked dirty the system will read all superblocks to find the most
+recent valid one.
+
+A superblock is considered valid if both magic strings are present,
+the checksum is correct, and the following consistency checks are met:
+
+* flags contains SHALL_SB_VALID
+
+* device_size is <= the physical size of the device
+
+* device_size is a multiple of 4096 and >= 65536
+
+* data_space + 4096 * num_superblocks == device_size
+
+* 0 <= data_start < data_space
+
+* 0 <= data_length <= data_space
+
+* data_length <= max_length <= data_space
+
+* alignment is a multiple of 8 and >= 8
+
+* num_superblocks > 8
+
+* location(last superblock) + sizeof(sb) <= device_size
+
+* this_superblock == number of this superblock
+
+Whenever the filesystem runs a "routine" commit, it only updates one
+of the superblocks.  When unmounting, the first superblock and a few
+alternative ones are marked clean and updated.  Whenever a commit
+occurs, the "version" field is incremented: this allows the recovery
+described above to know which superblock is the most recent.
+

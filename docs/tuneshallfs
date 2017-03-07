@@ -1,0 +1,54 @@
+tuneshallfs
+-----------
+
+This program allows to change the device format options and/or the device
+size.
+
+tuneshallfs accepts the following options:
+
+-a alignment
+    Change log alignment; no data will need to be copied just to change
+    this number, old logs will remain with the old alignment, and any new
+    logs will have the new alignment.
+
+-b number-of-superblocks
+    Change the number of superblocks; some data may need to be copied when
+    this number changes, and the program will do that automatically.
+
+-C [fd]
+-c [fd]
+    Prints progress information on standard output.  Useful when the program
+    needs to copy data to perform the action requested.  The optional "fd"
+    specifies a file descriptor other than standard output: in this case,
+    the format will be different and more suitable for reading from another
+    program.
+
+-l
+    Show current values without changing anything.  Incompatible with
+    any other option.
+
+-n
+    Do not make any changes to the device, instead just report what would
+    be done and how much data will need to be copied.
+
+-r new-size
+    Resize the journal to use the specified size, which must not exceed
+    the capacity of the device; if the number is zero, the new size is
+    calculated from the device size to use as much space as possible;
+    if "-b" is not specified, the new value for "-b" is calculated to
+    store as many superblocks as will fit. The program will almost certainly
+    need to copy data to complete this operation.
+
+-t seconds
+    Maximum time between checkpoints; increasing the time may make the
+    operation slightly faster, but it will make restart (with "-u") slower.
+    Checkpoints may happen more often if the program determines that it is
+    not safe to continue without a checkpoint. Default is 10 seconds.
+
+-u
+    If the program is interrupted in the middle of copying data, the
+    filesystem cannot be mounted or recovered until the operation is
+    completed: this option asks to complete a previously started operation.
+    The only other options which can be specified together with "-u" are
+    "-c"/"-C" and "-n".
+

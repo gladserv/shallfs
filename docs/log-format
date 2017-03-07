@@ -1,0 +1,149 @@
+Format used to store logs memory and on disk
+--------------------------------------------
+
+The filesystem module logs all events which can modify data by adding a
+record to its own journal device (via a memory cache).  The format used
+by the journal device is independent of processor features and documented
+below.  All structures mentioned here are devined in <shallfs/device.h>
+
+Each log contains a header followed by one or two filenames and possibly
+some other data; the header contains the offset to the next header, so
+events can be copied or skipped without decoding them.  A memory buffer
+can contain as many logs as fit in it.
+
+See <shallfs/device.h> for the most recent version of the event header
+structure (struct shall_devheader); all fields are in little-endian
+integer format and must be converted to the host format before using;
+the meaning of the various fields is:
+
+next_header
+    The offset to the next event; if current location + next_header is
+    after the end of the data, this is the last event.
+
+operation
+    The operation requested; this is a value from enum shall_operation
+    defined in <shallfs/operation.h>, but is stored as an integer.  A
+    negative number means that the event was stored before performing
+    the operation (and the operation code is the absolute value of the
+    number found here); a positive value means that the event was stored
+    after performing the operation.
+
+    If operation is 0, this is a special "debug" log which is only
+    produced if the filesystem was compiled with CONFIG_SHALL_FS_DEBUG
+    set, and the mount option debug=on was given.  In this case, the
+    "file1" field will contain the message, the "file2" the filename
+    where the debug log was produced, and the "result" will be the
+    line number.
+
+result
+    The result of the operation; usually, negative means an error code,
+    and positive means OK.  If the event was generated before performing
+    the operation, this will always be 0.  Some operation provide a fake
+    value here in case of success, for example a write() will report 0
+    on success, but store the real return value in the "length" field:
+    this is because the return value may not fit in an integer, and
+    updating the "length" field will describe the operation as performed,
+    as opposed to as requested.
+
+flags
+    A value from enum enum shall_log_flags indicating which extra data
+    has been provided (see also below and <shallfs/opdata.h>).
+
+req_sec, req_nsec
+    The time when the operation was requested.
+
+checksum
+    A crc32 of the whole header, calculated with starting value
+    0x4c414853 ("SHAL").
+
+Filenames, if present, follow immediately after the header using a
+struct shall_devfileid to encode their length, and then the data (note
+that there is no terminating NUL).  Any other data follow the filenames
+using the appropriate format (struct shall_devregion, struct shall_devattr,
+struct shall_devfileid, or struct shall_devsize).
+
+Events are aligned so that the start is a multiple of the alignment
+selected at "mkfs" time (or as modified with a later "tuneshallfs").
+However, no special alignment can be guaranteed for data and file name
+lengths.  Programs using this data must either do unaligned memory
+accesses (if the processor requires that), or copy the data to a
+properly aligned region.
+
+The operation defines which data will be provided; this information is
+contained in <shallfs/opdata.h>; however the "flags" field describes which
+data is actually present and is a more reliable indication of how to
+decode the event log.  The information provided in <shallfs/opdata.h> and
+repeated below can be used to check the correctness of a log.
+
+operation        files   data     description
+SHALL_MOUNT      1       -        filesystem was mounted (mount
+                                  options are given as first filename)
+SHALL_REMOUNT    1       -        mount options changed (new mount
+                                  options are given as first filename)
+SHALL_UMOUNT     0       -        filesystem was unmounted
+SHALL_TOO_BIG    0       size     event too big for memory buffer,
+                                  increase the size in the commit mount
+                                  option; "size" is the required size
+SHALL_OVERFLOW   0       -        no space in journal to log another
+                                  operation; this will be logged once
+                                  when the overflow condition is detected
+SHALL_RECOVER    0       size     journal recovered from overflow condition,
+                                  "size" == extra space which would have
+                                  avoided the overflow
+SHALL_META       1       attr     metadata change
+SHALL_MKDIR      1       attr     directory created
+SHALL_MKNOD      1       attr     special file created
+SHALL_LINK       2       -        name added to an existing file
+SHALL_SYMLINK    2       attr     symbolic link created
+SHALL_DELETE     1       -        non-directory deleted
+SHALL_RMDIR      1       -        directory deleted
+SHALL_CREATE     1       attr     regular file created
+SHALL_OPEN       1       fileid   file opened for writing
+SHALL_WRITE      0       region   data written to file
+SHALL_COMMIT     0       fileid   file flushed (fsync, fdatasync)
+SHALL_CLOSE      0       fileid   file closed
+SHALL_MOVE       2       -        file renamed within filesystem
+SHALL_SWAP       2       -        concurrent rename A->B and B->A
+SHALL_SET_ACL    1       acl      acl for file updated
+SHALL_SET_XATTR  1       xattr    extended attribute set
+SHALL_DEL_XATTR  1       name     extended attribute deleted
+
+OPEN and CREATE return the file name of the file being opened/created;
+a "creat()" or "open()" with mode including O_CREAT will actually result
+in two logs, a CREATE followed by an OPEN.
+
+OPEN also returns a file ID; this is an integer which is guaranteed not
+to be reused until the file is closed again, and is used to identify
+subsequent WRITE operations as going to that file; the CLOSE and COMMIT
+operations also specify the file ID rather than the name; after a CLOSE
+(or an UMOUNT), the file ID is no longer valid and can be reused.
+
+OVERFLOW and RECOVER happen in pairs and the two timestamps indicate the
+time period when operations could not be logged; some (smaller) logs may
+appear between the two, depending on exactly how much space was available
+in the device; the "result" field in RECOVER indicates how many operations
+were dropped or delayed, and the "data" field is the amount of extra space
+which would have avoided the overflow if present.
+
+When writing data to a file, the region being written is specified by the
+shall_devregion structure; the actual data is not included but can be found in
+the file itself (until this has been overwritten, but at that point there
+is no need to replicate this operation).  The three fields in the structure
+indicate the first offset ("start"), the length of the data written ("length")
+and the file it was written to ("fileid").
+
+When changing file attributes, or creating a new file, the new file
+attributes are provided in an shall_devattr structure.  The "flag"
+field indicates which of the remaining fileds contain valid information;
+note that the "size" field may actually contain a device number instead
+of a size, if "flags" contain shall_attr_device: in this case, the device
+major is contained in the upper 32 bits, and the minor in the lower 32 bits.
+
+When ACLs are updated (in a way which cannot be represented as an access
+mode change using META) the SET_ACL operation will include the new ACL as a
+single blob containing all the entries; this uses struct shall_devacl.
+
+When other extended attributed are updated, the SET_XATTR and DEL_XATTR
+operations describe the change; each operation uses the shall_devxattr
+structure.
+

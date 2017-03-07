@@ -1,0 +1,80 @@
+Mount option for "shallfs" filesystem
+-------------------------------------
+
+As for all filesystems, mount options are given as a comma-separated list;
+standard options (e.g. readonly) are parsed and removed by the "mount" command
+and therefore are not documented here.
+
+All options except "fs" can be changed with a remount.
+
+fs=/some/path
+    The underlying filesystem; there is no default and must be specified;
+    changing this with "remount" is currently not supported, so it can be
+    omitted in that case (if present, it must be identical to the previous
+    value).  If the pathname contains a comma or backslash, these must be
+    escaped, for example "fs=/path/with\,comma/and\\backslash".
+
+overflow=drop|wait
+    What to do if the journal runs out of space: "drop" will log a single
+    "overflow" operation and then stop logging until enough space is available;
+    "wait" (default) will delay operations until they can be logged.
+
+    Sending a signal to a process which is waiting for space to log results
+    in the log being dropped.
+
+    Changing from overflow=wait to overflow=drop with a remount will wake up
+    all processes which are waiting for space, and ask them to drop whatever
+    logs they cannot save: this can be used to "rescue" a heavily loaded
+    system in which everything keeps stopping waiting for space to log.
+
+too_big=log|error
+    What to do if a log is too big to fit in the memory buffer? "log" will
+    produce a smaller log which contains the required size; "error" will
+    cause the filesystem operation to fail; default is "log".  The size of
+    the memory buffer is the same as the commit size specified by the next
+    option, so this problem can be fixed with a remount.
+
+commit=seconds:size
+    Commits the journal every "seconds" seconds and when there are "size" or
+    more bytes pending, whichever happens first; the minimum value for
+    "seconds" is 1, and for "size" is the page size, normally 4096 or 8192;
+    for best results, make "size" a power of 2.  Default is 5:PAGE_SIZE
+    (so mounting with the default value will show the page size in
+    /proc/mounts).
+
+    The filesystem status will say how many times the memory buffer was
+    committed because of "size" rather than "seconds": ideally, all commits
+    are because of "seconds" because that results in the best performance,
+    so check that information and change mount options if required.
+
+    If the size is changed on a remount, this forces an immediate commit
+    to flush the old memory buffer; if the seconds are changed, this will
+    take effect the next time the commit thread runs.
+
+log=before|after|twice
+    Determines when an event is stored in the journal: "before" means that
+    it goes to journal before the operation is actually performed; "after"
+    means that the operation goes ahead immediately, and the journal updated
+    afterwards; "twice" means that each operation is logged before executing,
+    and then again after; default is "after"; if log is set to "before",
+    the result of the operation cannot be taken into account.
+
+pathfilter=list
+    List of paths within the filesystem in which operations are logged: this
+    is interpreted as a directory, so "pathfilter=data" will log everything
+    inside /mountpoint/data/ but not for example /mountpoint/data.txt; the
+    pattern cannot start or end with a slash, and cannot contain empty
+    components, "." or "..".
+
+    Simple patterns are allowed in which a single "*" stands for any directory,
+    for example "pathfilter=*/Maildir"; multiple paths can be specified by
+    separating them with colons, for example "pathfilter=user1/Maildir:user2";
+    to include a colon, comma or backslash in a path, escape it with a
+    backslash; at present, there is no way to escape a "*".
+
+    The default is an empty string, which means that there is no filtering.
+
+debug=on|off
+    If the filesystem has been compiled with debug support, turn debugging
+    output on or off (default off).
+
