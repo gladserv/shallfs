@@ -1,0 +1,17 @@
+--- orig/fs/Makefile	2015-02-20 11:54:42.895376699 +0000
++++ linux/fs/Makefile	2015-03-08 09:39:14.521476195 +0100
+@@ -126,3 +126,4 @@
+ obj-$(CONFIG_CEPH_FS)		+= ceph/
+ obj-$(CONFIG_PSTORE)		+= pstore/
+ obj-$(CONFIG_EFIVAR_FS)		+= efivarfs/
++obj-$(CONFIG_SHALL_FS)		+= shallfs/
+--- orig/fs/Kconfig	2015-02-20 11:55:57.173972553 +0000
++++ linux/fs/Kconfig	2015-03-06 22:57:59.000000000 +0000
+@@ -210,6 +210,7 @@
+ source "fs/exofs/Kconfig"
+ source "fs/f2fs/Kconfig"
+ source "fs/efivarfs/Kconfig"
++source "fs/shallfs/Kconfig"
+ 
+ endif # MISC_FILESYSTEMS
+ 

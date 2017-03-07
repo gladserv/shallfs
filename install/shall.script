@@ -1,0 +1,2 @@
+ln -s /usr/src/shall/shallfs fs/
+ln -s /usr/src/shall/include/shallfs include/
