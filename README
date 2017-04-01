@@ -1,12 +1,15 @@
 To install:
 
-(Assuming kernel sources are in /usr/src/linux or /usr/src/linux-VERSION)
+Unpack the distribution or copy the sources to some directory, we
+use /usr/src/shall here
 
-copy the whole directory to /usr/src/shall
-cd /usr/src/linux (or linux-VERSION)
-patch -sp1 < ../shall/install/shall.patch
-sh ../shall/install/shall.script
+Change directory to the root of your Linux kernel tree, for example:
+cd /usr/src/linux
 
+Install the "shall" sources:
+/usr/src/shall/install
+
+Configure your kernel to include the shall filesystem:
 make menuconfig
   File systems  --->
     Pseudo filesystems  --->
@@ -18,4 +21,8 @@ make install
 make modules_install
 
 Then "modprobe shallfs" (or just "mount -tshallfs" will autoload the module)
+
+To use:
+
+see docs/0README and other files in docs/
 

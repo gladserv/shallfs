@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# locate the "shall" sources...
+dir="`dirname "$0"`"
+[ "x$dir" != x -a \
+  -d "$dir/shallfs" -a \
+  -d "$dir/include/shallfs" -a \
+  -f "$dir/patch" ] || \
+    { echo "Cannot find shall sources" >&2; exit 1; }
+
+# copy the fs and include directories
+cp -a "$dir/shallfs" fs/
+cp -a "$dir/include/shallfs" include/
+
+# and patch the Makefiles
+patch -sp1 < "$dir/patch"
+

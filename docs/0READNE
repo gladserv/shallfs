@@ -50,10 +50,8 @@ becomes full and the logs must be saved elsewhere and cleared).  Note
 however that any files open on /home before the mount will still refer
 to the underlying filesystem directly, only opens after the mount will
 refer to the filesystem as mediated by shallfs (and this also explains
-why it works: the module does a lookup on the underlying filesystem
-just before the mount completes, and uses that as a start directory for
-the operations it forwards, which means that they all automatically use
-the correct filesystem, no matter where it's mounted).
+why it works: the module opens the underlying directory before the mount
+completes, so it can access it and any files inside it).
 
 IT IS ABSOLUTELY ESSENTIAL THAT THE UNDERLYING FILESYSTEM DOES NOT HAVE
 HARD LINKS TO DIRECTORIES except for the system-generated "." and ".."
