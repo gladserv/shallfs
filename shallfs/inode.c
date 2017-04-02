@@ -29,6 +29,38 @@
 #include "shallfs.h"
 #include "log.h"
 
+/* we'll need to see exactly which kernel version for this... XXX */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
+#define lock_inode(i) mutex_lock(i->i_mutex);
+#define lock_inode_nested(i, s) mutex_lock_nested(&i->i_mutex, s);
+#define unlock_inode(i) mutex_unlock(&i->i_mutex);
+#else
+#define lock_inode(i) inode_lock(i)
+#define lock_inode_nested(i, c) inode_lock_nested(i, c)
+#define unlock_inode(i) inode_unlock(i)
+#endif
+
+/* we'll need to see exactly which kernel version for this... XXX */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
+#define SHALL_USE_OLD_SYMLINK_CODE 1
+#else
+#define SHALL_USE_OLD_SYMLINK_CODE 0
+#endif
+
+/* we'll need to see exactly which kernel version for this... XXX */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
+#define SHALL_USE_OLD_RENAME_CODE 1
+#else
+#define SHALL_USE_OLD_RENAME_CODE 0
+#endif
+
+/* we'll need to see exactly which kernel version for this... XXX */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
+#define SHALL_USE_OLD_XATTR_CODE 1
+#else
+#define SHALL_USE_OLD_XATTR_CODE 0
+#endif
+
 /* structure we store in the file */
 struct shall_file_data {
 	struct file * file;		/* "real" file under fspath */
@@ -111,9 +143,9 @@ static struct dentry * shall_lookup(struct inode *dir, struct dentry *dentry,
 	int namelen = dentry->d_name.len;
 	/* paranoia */
 	if (! base || ! dname) return ERR_PTR(-ENOENT);
-	mutex_lock(&base->d_inode->i_mutex);
+	lock_inode(base->d_inode);
 	lookup = lookup_one_len(dname, base, namelen);
-	mutex_unlock(&base->d_inode->i_mutex);
+	unlock_inode(base->d_inode);
 	if (IS_ERR(lookup)) return lookup;
 	if (lookup->d_inode) {
 		inode = shall_new_inode(dir->i_sb, lookup);
@@ -126,6 +158,7 @@ static struct dentry * shall_lookup(struct inode *dir, struct dentry *dentry,
 	return d_splice_alias(inode, dentry);
 }
 
+#if SHALL_USE_OLD_SYMLINK_CODE
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
 static void * shall_follow_link(struct dentry *link, struct nameidata *nd) {
 	void * p;
@@ -172,6 +205,22 @@ static void shall_put_link(struct inode *link, void *p) {
 		u_inode->i_op->put_link(u_dentry->d_inode, p);
 #endif
 }
+#else /* SHALL_USE_OLD_SYMLINK_CODE */
+const char * shall_get_link(struct dentry * dentry, struct inode * inode,
+			    struct delayed_call * callback)
+{
+	struct dentry * u_dentry;
+	struct inode * u_inode;
+	if (! dentry) return ERR_PTR(-EINVAL);
+	if (! inode) return ERR_PTR(-EINVAL);
+	u_dentry = inode->i_private;
+	if (! u_dentry) return ERR_PTR(-EINVAL);
+	u_inode = u_dentry->d_inode;
+	if (! (u_inode->i_op && u_inode->i_op->get_link))
+		return ERR_PTR(-ENOSYS);
+	return u_inode->i_op->get_link(u_dentry, u_inode, callback);
+}
+#endif
 
 static int shall_readlink(struct dentry *link, char __user *dest, int len) {
 	/* just delegate to the lower fs */
@@ -258,11 +307,11 @@ static int make_node(struct inode *dir, struct dentry *dentry, umode_t mode,
 		early_unlock = 1;
 		goto failed;
 	}
-	mutex_lock_nested(&u_dir->d_inode->i_mutex, I_MUTEX_PARENT);
+	lock_inode_nested(u_dir->d_inode, I_MUTEX_PARENT);
 	/* do a lookup so we have a dentry in the underlying filesystem */
 	u_dentry = lookup_one_len(dentry->d_name.name, u_dir,
 				  dentry->d_name.len);
-	if (early_unlock) mutex_unlock(&u_dir->d_inode->i_mutex);
+	if (early_unlock) unlock_inode(u_dir->d_inode);
 	if (IS_ERR(u_dentry)) {
 		res = PTR_ERR(u_dentry);
 		goto failed;
@@ -320,7 +369,7 @@ failed_dput:
 	dput(u_dentry);
 failed:
 	if (freeit) shall_putname(fi, freeit);
-	if (! early_unlock) mutex_unlock(&u_dir->d_inode->i_mutex);
+	if (! early_unlock) unlock_inode(u_dir->d_inode);
 	return res;
 }
 
@@ -565,9 +614,9 @@ static int shall_setattr(struct dentry *dentry, struct iattr *iattr) {
 		if (err) goto out;
 	}
 	u_dentry = dentry->d_inode->i_private;
-	mutex_lock(&u_dentry->d_inode->i_mutex);
+	lock_inode(u_dentry->d_inode);
 	err = notify_change(u_dentry, iattr, NULL);
-	mutex_unlock(&u_dentry->d_inode->i_mutex);
+	unlock_inode(u_dentry->d_inode);
 	if (IS_LOG_AFTER(fi) && attr.flags)
 		shall_log_1a(fi, SHALL_META, path, &attr, err);
 out:
@@ -699,9 +748,9 @@ static int shall_set_acl(struct inode *inode, struct posix_acl *acl, int type) {
 	return -ENOSYS;
 }
 
-static int shall_rename2(struct inode *olddir, struct dentry *oldname,
-			 struct inode *newdir, struct dentry *newname,
-			 unsigned int flags)
+static int shall_rename(struct inode *olddir, struct dentry *oldname,
+			struct inode *newdir, struct dentry *newname,
+			unsigned int flags)
 {
 	struct dentry * u_olddirdentry = olddir->i_private, * u_oldname;
 	struct dentry * u_newdirdentry = newdir->i_private, * u_newname;
@@ -808,10 +857,10 @@ static int shall_symlink(struct inode *dir, struct dentry *dentry,
 		err = -ENOENT;
 		goto out_putname;
 	}
-	mutex_lock(&u_dir->i_mutex);
+	lock_inode(u_dir);
 	u_dentry = lookup_one_len(dentry->d_name.name, u_dirdentry,
 				  dentry->d_name.len);
-	mutex_unlock(&u_dir->i_mutex);
+	unlock_inode(u_dir);
 	if (IS_ERR(u_dentry)) {
 		err = PTR_ERR(u_dentry);
 		goto out_putname;
@@ -869,7 +918,7 @@ static int shall_link(struct dentry *olddentry,
 		if (err) goto fail_putname_new;
 	}
 retry_break:
-	mutex_lock(&u_newdirdentry->d_inode->i_mutex);
+	lock_inode(u_newdirdentry->d_inode);
 	u_newdentry = lookup_one_len(newdentry->d_name.name, u_newdirdentry,
 				     newdentry->d_name.len);
 	if (IS_ERR(u_newdentry)) {
@@ -887,7 +936,7 @@ retry_break:
 out_dput:
 	dput(u_newdentry);
 out_unlock:
-	mutex_unlock(&u_newdirdentry->d_inode->i_mutex);
+	unlock_inode(u_newdirdentry->d_inode);
 	if (dbreak) {
 		err = break_deleg_wait(&dbreak);
 		if (! err) goto retry_break;
@@ -926,9 +975,9 @@ static int remove_node(struct inode *dir, struct dentry *dentry,
 	}
 retry_break:
 	if (operation == SHALL_DELETE)
-		mutex_lock(&u_dir->i_mutex);
+		lock_inode(u_dir);
 	else
-		mutex_lock_nested(&u_dir->i_mutex, I_MUTEX_PARENT);
+		lock_inode_nested(u_dir, I_MUTEX_PARENT);
 	u_dentry = lookup_one_len(dentry->d_name.name, u_dirdentry,
 				  dentry->d_name.len);
 	if (IS_ERR(u_dentry)) {
@@ -940,7 +989,7 @@ retry_break:
 			err = vfs_rmdir(u_dir, u_dentry);
 		dput(u_dentry);
 	}
-	mutex_unlock(&u_dir->i_mutex);
+	unlock_inode(u_dir);
 	if (dbreak) {
 		err = break_deleg_wait(&dbreak);
 		if (! err) goto retry_break;
@@ -1010,15 +1059,17 @@ static struct file_operations shall_dir_file_operations = {
 /* inode operation for "other" types of files, which in this context means
  * anything except directories and symlinks */
 static struct inode_operations shall_other_inode_operations = {
-	.setattr	= shall_setattr,
-	.getattr	= shall_getattr,
 	.update_time	= shall_update_time,
 	.get_acl	= shall_get_acl,
 	.set_acl	= shall_set_acl,
+	.setattr	= shall_setattr,
+	.getattr	= shall_getattr,
+	.listxattr	= generic_listxattr,
+#if SHALL_USE_OLD_XATTR_CODE
 	.getxattr	= generic_getxattr,
 	.setxattr	= generic_setxattr,
-	.listxattr	= generic_listxattr,
 	.removexattr	= generic_removexattr,
+#endif
 };
 
 /* inode operations for directories; they can do pretty much everything
@@ -1027,17 +1078,23 @@ static struct inode_operations shall_other_inode_operations = {
 static struct inode_operations shall_dir_inode_operations = {
 	.lookup		= shall_lookup,
 	.create		= shall_create,
-	.setattr	= shall_setattr,
-	.getattr	= shall_getattr,
 	.update_time	= shall_update_time,
 	.get_acl	= shall_get_acl,
 	.set_acl	= shall_set_acl,
+	.setattr	= shall_setattr,
+	.getattr	= shall_getattr,
+	.listxattr	= generic_listxattr,
+#if SHALL_USE_OLD_XATTR_CODE
 	.getxattr	= generic_getxattr,
 	.setxattr	= generic_setxattr,
-	.listxattr	= generic_listxattr,
 	.removexattr	= generic_removexattr,
+#endif
+#if SHALL_USE_OLD_RENAME_CODE
 	.rename		= NULL, /* because we use rename2 */
-	.rename2	= shall_rename2,
+	.rename2	= shall_rename,
+#else
+	.rename		= shall_rename,
+#endif
 	.link		= shall_link,
 	.unlink		= shall_unlink,
 	.symlink	= shall_symlink,
@@ -1054,14 +1111,20 @@ static struct inode_operations shall_dir_inode_operations = {
 static struct inode_operations shall_symlink_inode_operations = {
 	.lookup		= shall_lookup,
 	.readlink	= shall_readlink,
+#if SHALL_USE_OLD_SYMLINK_CODE
 	.follow_link	= shall_follow_link,
 	.put_link	= shall_put_link,
+#else
+	.get_link	= shall_get_link,
+#endif
 	.setattr	= shall_setattr,
 	.getattr	= shall_getattr,
+	.listxattr	= generic_listxattr,
+#if SHALL_USE_OLD_XATTR_CODE
 	.getxattr	= generic_getxattr,
 	.setxattr	= generic_setxattr,
-	.listxattr	= generic_listxattr,
 	.removexattr	= generic_removexattr,
+#endif
 };
 
 void shall_evict_inode(struct inode *inode) {
@@ -1074,19 +1137,22 @@ void shall_evict_inode(struct inode *inode) {
 	clear_inode(inode);
 }
 
-/* newer kernels have a struxt xattr_handler as first arg to functions */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
-# define SHALL_HANDLER /* nothing */
-# define SHALL_FLAGS , int handler_flags
-#else
-# define SHALL_HANDLER const struct xattr_handler *handler,
-# define SHALL_FLAGS /* nothing */
-#endif
+#if SHALL_USE_OLD_XATTR_CODE
+ /* newer kernels have a struxt xattr_handler as first arg to functions */
+# if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
+#  define SHALL_XATTR_HANDLER /* nothing */
+#  define SHALL_XATTR_FLAGS , int handler_flags
+# else
+#  define SHALL_XATTR_HANDLER const struct xattr_handler *handler,
+#  define SHALL_XATTR_FLAGS /* nothing */
+# endif
+# define SHALL_XATTR_INODE /* nothing */
+# define SHALL_XATTR_DECLARE_INODE struct inode * inode = dentry->d_inode;
 
-static size_t shall_listxattr(SHALL_HANDLER
+static size_t shall_listxattr(SHALL_XATTR_HANDLER
 			      struct dentry *dentry, char *list,
 			      size_t list_size, const char *name,
-			      size_t name_len SHALL_FLAGS)
+			      size_t name_len SHALL_XATTR_FLAGS)
 {
 	struct inode * inode = dentry->d_inode;
 	struct dentry * u_dentry;
@@ -1096,11 +1162,23 @@ static size_t shall_listxattr(SHALL_HANDLER
 	return vfs_listxattr(u_dentry, list, list_size);
 }
 
-static int shall_getxattr(SHALL_HANDLER
-			  struct dentry *dentry, const char *name,
-			  void *buffer, size_t size SHALL_FLAGS)
+#else /* SHALL_USE_OLD_XATTR_CODE */
+# define SHALL_XATTR_HANDLER const struct xattr_handler *handler,
+# define SHALL_XATTR_FLAGS /* nothing */
+# define SHALL_XATTR_INODE struct inode *inode, 
+# define SHALL_XATTR_DECLARE_INODE /* nothing */
+
+static bool shall_listxattr(struct dentry *dentry) {
+	return true;
+}
+
+#endif /* SHALL_USE_OLD_XATTR_CODE */
+
+static int shall_getxattr(SHALL_XATTR_HANDLER struct dentry *dentry,
+			  SHALL_XATTR_INODE const char *name,
+			  void *buffer, size_t size SHALL_XATTR_FLAGS)
 {
-	struct inode * inode = dentry->d_inode;
+	SHALL_XATTR_DECLARE_INODE
 	struct dentry * u_dentry;
 	if (! inode) return -EINVAL;
 	u_dentry = inode->i_private;
@@ -1108,12 +1186,12 @@ static int shall_getxattr(SHALL_HANDLER
 	return vfs_getxattr(u_dentry, name, buffer, size);
 }
 
-static int shall_setxattr(SHALL_HANDLER
-			  struct dentry *dentry, const char *name,
+static int shall_setxattr(SHALL_XATTR_HANDLER struct dentry *dentry,
+			  SHALL_XATTR_INODE const char *name,
 			  const void *buffer, size_t size,
-			  int flags SHALL_FLAGS)
+			  int flags SHALL_XATTR_FLAGS)
 {
-	struct inode * inode = dentry->d_inode;
+	SHALL_XATTR_DECLARE_INODE
 	struct dentry * u_dentry;
 	struct shall_fsinfo * fi = dentry->d_sb->s_fs_info;
 	char * freeit, * path = find_path(dentry, &freeit);
@@ -1153,5 +1231,8 @@ const struct xattr_handler shall_xattr_handler = {
 	.list	= shall_listxattr,
 	.get	= shall_getxattr,
 	.set	= shall_setxattr,
+#if ! SHALL_USE_OLD_XATTR_CODE
+	.name	= "shall",
+#endif
 };
 

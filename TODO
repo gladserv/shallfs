@@ -1,5 +1,7 @@
-* retest symlink code
-* add 4.9.* as that's the most recent LTS kernel
+* retest symlink code on 4.4
+* retest symlink code on 4.9
+* retest xattr code on 4.9
+* retest rename code on 4.9
 * add a flag to indicate whether the logging is "once" or "twice"; can be
   provided automatically by append_logs()
 * test the "wait for space" logic fully
