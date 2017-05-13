@@ -313,6 +313,27 @@ static int add_acl(char * __user *dest, int *len,
 	return err;
 }
 
+/* print data */
+static int add_data(char * __user *dest, int *len, const char *name,
+		    const void * dptr, int dlen)
+{
+	char buffer[3];
+	const unsigned char * data = dptr;
+	int err = add_string(dest, len, name), i;
+	for (i = 0; i < dlen && err == 0; i++) {
+		snprintf(buffer, sizeof(buffer), "%02x", data[i]);
+		err = add_string(dest, len, buffer);
+	}
+	return err;
+}
+
+/* print hash */
+static int add_hash(char * __user *dest, int *len, const char *name,
+		    const unsigned char * hash)
+{
+	return add_data(dest, len, name, hash, SHALL_HASH_LENGTH);
+}
+
 /* convert information in log to string */
 static int print_log(char __user *dest, int remain, int operation, int result,
 		     enum shall_log_flags flags, const struct timespec *time,
@@ -322,6 +343,7 @@ static int print_log(char __user *dest, int remain, int operation, int result,
 	const struct shall_devfileid *dih;
 	const struct shall_devsize *dsh;
 	const struct shall_devxattr *dx;
+	const struct shall_devhash *dh;
 	int prnop = operation, dataflag, xf, n, ne, err = 0, len = remain;
 	add_time(&dest, &len, "@", time);
 	if (prnop == 0) {
@@ -405,6 +427,35 @@ static int print_log(char __user *dest, int remain, int operation, int result,
 			}
 			if (err == 0)
 				err = add_string(&dest, &len, "]");
+			break;
+		case SHALL_LOG_HASH :
+			dh = data_ptr;
+			if (err == 0)
+				err = add_number(&dest, &len, " id=",
+						 le32_to_cpu(dh->fileid));
+			if (err == 0)
+				err = add_bignum(&dest, &len, " start=",
+						 le64_to_cpu(dh->start));
+			if (err == 0)
+				err = add_bignum(&dest, &len, " length=",
+						 le64_to_cpu(dh->length));
+			if (err == 0)
+				err = add_hash(&dest, &len, " hash=", dh->hash);
+			break;
+		case SHALL_LOG_DATA :
+			dr = data_ptr;
+			if (err == 0)
+				err = add_number(&dest, &len, " id=",
+						 le32_to_cpu(dr->fileid));
+			if (err == 0)
+				err = add_bignum(&dest, &len, " start=",
+						 le64_to_cpu(dr->start));
+			if (err == 0)
+				err = add_bignum(&dest, &len, " length=",
+						 le64_to_cpu(dr->length));
+			if (err == 0)
+				err = add_data(&dest, &len, " data=",
+					       &dr[1], le64_to_cpu(dr->length));
 			break;
 	}
 	return err ? err : (remain - len);
@@ -664,13 +715,12 @@ retry_size_check:
 	if (dataflag) add_blob(fi, dptr[data], dlen[data]);
 	if (padding > 0) add_padding(fi, padding);
 out_noerror:
-	err = 0;
 	if (fi->sbi.rw.other.max_length < fi->sbi.rw.read.data_length)
 		fi->sbi.rw.other.max_length = fi->sbi.rw.read.data_length;
 	mutex_unlock(&fi->sbi.mutex);
 	atomic_set(&fi->sbi.ro.some_data, 1);
 	wake_up_all(&fi->sbi.ro.data_queue);
-	return err;
+	return 0;
 }
 
 /* log an event with 0 filenames and no other data */
@@ -700,6 +750,47 @@ int shall_log_0r(struct shall_fsinfo *fi, int operation,
 	dr.length = cpu_to_le64(length);
 	dr.fileid = cpu_to_le32(fileid);
 	return append_logs(fi, operation, result, SHALL_LOG_REGION, &ptr, &len);
+}
+
+/* log an event with 0 filenames and hash of data changed */
+int shall_log_0h(struct shall_fsinfo *fi, int operation,
+		 loff_t start, size_t length, const char __user *data,
+		 int fileid, int result)
+{
+	struct shall_devhash dh;
+	const void * ptr = &dh;
+	int len = sizeof(dh);
+	dh.start = cpu_to_le64(start);
+	dh.length = cpu_to_le64(length);
+	dh.fileid = cpu_to_le32(fileid);
+	return -ENOSYS; // XXX calculate hash to dh.hash
+	return append_logs(fi, operation, result, SHALL_LOG_HASH, &ptr, &len);
+}
+
+/* log an event with 0 filenames and copy of data changed */
+int shall_log_0d(struct shall_fsinfo *fi, int operation,
+		 loff_t start, size_t length, const char __user *data,
+		 int fileid, int result)
+{
+	/* we need to copy from user before we can log... and to avoid
+	 * having a large buffer we split the operation into chunks */
+	char buffer[1024];
+	struct shall_devregion dr;
+	const void * ptr[2] = { &dr, buffer };
+	int len[2] = { sizeof(dr), 0 };
+	while (1) {
+		size_t todo = length;
+		int err;
+		if (todo > sizeof(buffer)) todo = sizeof(buffer);
+		len[1] = todo;
+		if (copy_from_user(buffer, data, todo))
+			return -EFAULT;
+		data += todo;
+		err = append_logs(fi, operation, result,
+				  SHALL_LOG_DATA, ptr, len);
+		if (err) return err;
+		if (length < 1) return 0;
+	}
 }
 
 /* log an event with 1 filename and no other data */
@@ -1107,6 +1198,7 @@ ssize_t shall_print_logs(struct shall_fsinfo *fi,
 	struct shall_devsize dsh;
 	struct shall_devacl dlh;
 	struct shall_devxattr dxh;
+	struct shall_devhash dhh;
 	void * freeit = NULL;
 	ssize_t done = 0, err = 0;
 	if (space < 1) return 0;
@@ -1213,6 +1305,30 @@ ssize_t shall_print_logs(struct shall_fsinfo *fi,
 				memcpy(freeit, &dxh, sizeof(dxh));
 				err = shall_read_data_kernel(
 					fi, freeit + sizeof(dxh), rem_len);
+				if (err <= 0) goto out_restore;
+				s_count += err;
+				data_ptr = freeit;
+				break;
+			case SHALL_LOG_HASH :
+				err = read_structure(dhh);
+				if (err <= 0) goto out_restore;
+				data_ptr = &dhh;
+				s_count += err;
+				break;
+			case SHALL_LOG_DATA :
+				err = read_structure(drh);
+				if (err <= 0) goto out_restore;
+				data_ptr = &drh;
+				s_count += err;
+				rem_len = le32_to_cpu(drh.length);
+				tot_len = sizeof(drh) + rem_len;
+				freeit = shall_kmalloc(fi, tot_len, GFP_KERNEL);
+				if (! freeit) {
+					err = -ENOMEM;
+					goto out_restore;
+				}
+				err = shall_read_data_kernel(
+					fi, freeit + sizeof(drh), rem_len);
 				if (err <= 0) goto out_restore;
 				s_count += err;
 				data_ptr = freeit;

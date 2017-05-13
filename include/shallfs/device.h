@@ -4,6 +4,8 @@
 #define SHALL_SB_MAGIC "SHALL 01"
 #define SHALL_DEV_BLOCK 4096
 
+#define SHALL_HASH_LENGTH 32
+
 /* on-disk superblock format */
 struct shall_devsuper {
 	char magic1[8];				/*    0: "SHALL 01" */
@@ -70,6 +72,14 @@ struct shall_devregion {
 	__le64 length;				/*   8: length of region */
 	__le32 fileid;				/*  16: file ID */
 } __attribute__((packed));			/*  20 bytes */
+
+/* on-disk hash format */
+struct shall_devhash {
+	__le64 start;				/*   0: start of region */
+	__le64 length;				/*   8: length of region */
+	__le32 fileid;				/*  16: file ID */
+	unsigned char hash[SHALL_HASH_LENGTH];  /*  20: sha256 hash */
+} __attribute__((packed));			/*  52 bytes */
 
 /* on-dist attr format */
 struct shall_devattr {

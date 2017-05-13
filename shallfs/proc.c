@@ -473,7 +473,7 @@ static ssize_t ctrl_write(struct file *file, const char __user *buf,
 			}
 			goto unlock;
 		}
-		if (strcmp(copy, "userlog", 7) == 0) {
+		if (strncmp(copy, "userlog", 7) == 0) {
 		    const char * data = copy + 7;
 		    if (*data && isspace(*data)) data++;
 		    shall_log_1n(fi, SHALL_USERLOG, data, 0);

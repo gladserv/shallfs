@@ -61,11 +61,19 @@
 #define SHALL_USE_OLD_XATTR_CODE 0
 #endif
 
+/* how do we log writes? */
+typedef enum {
+    shall_log_none,                     /* no logging for this file */
+    shall_log_op,                       /* log operation but not data */
+    shall_log_hash,                     /* log operation and hash of data */
+    shall_log_data,                     /* log operation and data */
+} shall_log_mode_t;
+
 /* structure we store in the file */
 struct shall_file_data {
 	struct file * file;		/* "real" file under fspath */
 	struct shall_fsinfo * fi;	/* our filesystem information */
-	int is_logged;			/* control whether writes are logged */
+	shall_log_mode_t log_mode;      /* how do we log writes for this file */
 	int has_id;			/* has logging started? */
 	/* the following is only valid if has_id != 0 */
 	unsigned int id;		/* file ID to use when logging */
@@ -285,7 +293,13 @@ static int shall_open(struct inode *inode, struct file *file) {
 	 * some conditions, and fd->cached_log tells us whether there
 	 * is a log to flush */
 	fd->has_id = 0;
-	fd->is_logged = 1;
+	/* determine log mode from mount options */
+	if (fi->options.flags & DATA_HASH)
+	    fd->log_mode = shall_log_hash;
+	else if (fi->options.flags & DATA_FULL)
+	    fd->log_mode = shall_log_data;
+	else
+	    fd->log_mode = shall_log_op;
 	fd->fi = fi;
 	fd->cached_log = 0;
 	file->private_data = fd;
@@ -437,11 +451,35 @@ static inline int extend_log(struct shall_file_data *fd,
 }
 
 static inline int log_writes(struct shall_file_data *fd) {
-	if (! fd || ! fd->is_logged) return 0;
+	if (! fd || fd->log_mode == shall_log_none) return 0;
 	if (fd->file && fd->file->f_inode && fd->file->f_inode->i_nlink > 0)
 		return 1;
-	fd->is_logged = 0;
+	fd->log_mode = shall_log_none;
 	return 0;
+}
+
+static ssize_t log_write_data(struct shall_fsinfo *fi,
+			      struct shall_file_data *fd,
+			      shall_log_mode_t log_mode,
+			      int operation, loff_t start, size_t length,
+			      int fileid, int result, const char __user *src)
+{
+	ssize_t res = log_previous(fi, fd);
+	if (res) return res;
+	switch (log_mode) {
+		case shall_log_none :
+			return 0;
+		case shall_log_op :
+			return shall_log_0r(fi, operation, start,
+					    length, fd->id, result);
+		case shall_log_hash :
+			return shall_log_0h(fi, operation, start,
+					    length, src, fd->id, result);
+		case shall_log_data :
+			return shall_log_0d(fi, operation, start,
+					    length, src, fd->id, result);
+	}
+	return -EINVAL; /* shouldn't happen (TM) */
 }
 
 static ssize_t shall_write(struct file *file, const char __user *src,
@@ -454,6 +492,7 @@ static ssize_t shall_write(struct file *file, const char __user *src,
 	struct shall_fsinfo * fi = fd->fi;
 	loff_t oldpos = *pos;
 	ssize_t res;
+	shall_log_mode_t log_mode;
 	if (! fd) return -EPIPE;
 	if (! fd->has_id && log_writes(fd)) {
 		char * freeit, * path = find_path(file->f_path.dentry, &freeit);
@@ -464,18 +503,18 @@ static ssize_t shall_write(struct file *file, const char __user *src,
 		shall_log_1i(fi, SHALL_OPEN, path, fd->id, 0);
 		if (freeit) shall_putname(fi, freeit);
 	}
+	log_mode = fd->log_mode;
 	if (IS_LOG_BEFORE(fi) && log_writes(fd)) {
-		res = log_previous(fi, fd);
+		res = log_write_data(fi, fd, log_mode, -SHALL_WRITE,
+				     oldpos, len, fd->id, 0, src);
 		if (res) return res;
-		res = shall_log_0r(fi, -SHALL_WRITE, oldpos, len, fd->id, 0);
-		if (res) return res;
+		log_mode = shall_log_none; /* no need to log data twice */
 	}
 	res = vfs_write(fd->file, src, len, pos);
 	if (IS_LOG_AFTER(fi) && log_writes(fd)) {
-		if (res < 0) {
-			log_previous(fi, fd);
-			shall_log_0r(fi, SHALL_WRITE, oldpos,
-				     len, fd->id, (int)res);
+		if (res < 0 || log_mode != shall_log_op) {
+			res = log_write_data(fi, fd, log_mode, SHALL_WRITE,
+					     oldpos, len, fd->id, (int)res, src);
 		} else {
 			/* if we can extend the cached log, nothing to do;
 			 * if we cannot extend it we must flush it and make

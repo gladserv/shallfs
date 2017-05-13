@@ -24,6 +24,16 @@ int shall_log_0i(struct shall_fsinfo *, int operation,
 int shall_log_0r(struct shall_fsinfo *, int operation,
 		 loff_t start, size_t length, int fileid, int result);
 
+/* log an event with 0 filenames and hash of data changed */
+int shall_log_0h(struct shall_fsinfo *, int operation,
+		 loff_t start, size_t length, const char __user *data,
+		 int fileid, int result);
+
+/* log an event with 0 filenames and copy of data changed */
+int shall_log_0d(struct shall_fsinfo *, int operation,
+		 loff_t start, size_t length, const char __user *data,
+		 int fileid, int result);
+
 /* log an event with 1 filename and no other data */
 int shall_log_1n(struct shall_fsinfo *, int operation,
 		 const char *, int result);

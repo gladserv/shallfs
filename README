@@ -26,3 +26,9 @@ To use:
 
 see docs/0README and other files in docs/
 
+To install an updated copy of shallfs in a kernel tree already patched use
+"update" instead of "install":
+cd /usr/src/linux
+/usr/src/shall/update
+make
+

@@ -15,8 +15,12 @@
   plain spin_lock enough?
 * test code with SHALL_FS_DEBUG=n
 * mkshallfs: without -f, check first block for any filesystem signature
+* log.c: implement shall_log_0d
+* fcntl or ioctl or something to change a file's log option (currently set
+  at open() from the mount options in effect at the time)
 * readshallfs: option to add data and/or SHA checksum to each WRITE
-  and send the result to file/socket
+  and send the result to file/socket (using data provided by kernel
+  module, or if not provided, reading the files)
 * readshallfs: output file rotation; maybe adding timestamp to name and
   asking for periodic closing/reopening
 * test remount with wake_up=1 but that's quite difficult to arrange

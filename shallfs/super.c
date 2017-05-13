@@ -99,6 +99,18 @@ static const struct flags_table log_table = {
 	.values		= log_values,
 };
 
+static const struct flags_value data_values[] = {
+	{ DATA_NONE,		"none" },
+	{ DATA_HASH,		"hash" },
+	{ DATA_FULL,		"data" },
+};
+
+static const struct flags_table data_table = {
+	.mask		= DATA_MASK,
+	.n_values	= sizeof(data_values) / sizeof(data_values[0]),
+	.values		= data_values,
+};
+
 #ifdef CONFIG_SHALL_FS_DEBUG
 static const struct flags_value debug_values[] = {
 	{ DEBUG_OFF, 		"off" },
@@ -319,6 +331,9 @@ static int parse_options(char *data, struct shall_options *opts)
 			     &opts->flags, &ok))
 			continue;
 		if (set_flag(ptr, len, "log", &log_table,
+			     &opts->flags, &ok))
+			continue;
+		if (set_flag(ptr, len, "data", &data_table,
 			     &opts->flags, &ok))
 			continue;
 #ifdef CONFIG_SHALL_FS_DEBUG

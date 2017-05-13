@@ -59,6 +59,16 @@ log=before|after|twice
     and then again after; default is "after"; if log is set to "before",
     the result of the operation cannot be taken into account.
 
+data=none|hash|full
+    Determine how write operations are logged; "none" (the default) means
+    that operation are logged but not the data; "hash" means that a sha256
+    hash of the data is logged; "full" means that the data is logged in
+    full (the log device will need to be rather large for this!).
+    A file will inherit the logging mode from the mount options in effect
+    when the file is opened, a future version will allow to set the logging
+    mode with a fcntl or other mechanism; changing this options on remount
+    will affect opens after the remount but won't change files already open.
+
 pathfilter=list
     List of paths within the filesystem in which operations are logged: this
     is interpreted as a directory, so "pathfilter=data" will log everything

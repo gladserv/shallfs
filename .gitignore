@@ -1,0 +1,10 @@
+tools/mkshallfs
+tools/mkshallfs.o
+tools/readshallfs
+tools/readshallfs.o
+tools/shallfs-common.o
+tools/shallfsck
+tools/shallfsck.o
+tools/shalluserlog
+tools/shalluserlog.o
+

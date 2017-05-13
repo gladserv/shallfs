@@ -44,7 +44,9 @@ enum shall_log_flags {
 	SHALL_LOG_REGION	= 0x0800,	/* region present */
 	SHALL_LOG_SIZE		= 0x1000,	/* size present */
 	SHALL_LOG_ACL		= 0x2000,	/* ACL present */
-	SHALL_LOG_DMASK		= 0x3f00,	/* mask to get data type */
+	SHALL_LOG_HASH          = 0x4000,       /* hash of data present */
+	SHALL_LOG_DATA          = 0x8000,       /* full data present */
+	SHALL_LOG_DMASK		= 0xff00,	/* mask to get data type */
 };
 
 #define SHALL_HEADER_MAGIC 0x4c4a4853

@@ -22,6 +22,11 @@ enum shall_flags {
 	TOO_BIG_ERROR	= 0x0008,
 	TOO_BIG_MASK	= TOO_BIG_LOG | TOO_BIG_ERROR,
 
+	DATA_NONE       = 0x0000,
+	DATA_HASH       = 0x0010,
+	DATA_FULL       = 0x0020,
+	DATA_MASK       = DATA_HASH | DATA_FULL,
+
 #ifdef CONFIG_SHALL_FS_DEBUG
 	DEBUG_OFF       = 0x0000,
 	DEBUG_ON        = 0x1000,

@@ -307,6 +307,7 @@ static int print_log(off_t where, const char * data, int count) {
     char ts[64];
     struct shall_devheader dh;
     struct shall_devregion dr;
+    struct shall_devhash dc;
     struct shall_devfileid df;
     struct shall_devsize ds;
     struct shall_devattr da;
@@ -412,6 +413,29 @@ static int print_log(off_t where, const char * data, int count) {
 		    printf("%%%02x", c);
 	    }
 	    printf("]\n");
+	    break;
+	case SHALL_LOG_HASH :
+	    getdata(dc);
+	    printf("          id=%d region=%lld:%lld\n",
+		   le32toh(dc.fileid), (long long)le64toh(dc.start),
+		   (long long)le64toh(dc.length));
+	    printf("          data_hash=");
+	    for (n = 0; n < SHALL_HASH_LENGTH; n++)
+		printf("%02x", dc.hash[n]);
+	    printf("\n");
+	    break;
+	case SHALL_LOG_DATA :
+	    getdata(dr);
+	    printf("          id=%d region=%lld:%lld\n",
+		   le32toh(dr.fileid), (long long)le64toh(dr.start),
+		   (long long)le64toh(dr.length));
+	    len2 = le64toh(dr.length);
+	    printf("          data=");
+	    for (n = 0; n < len2; n++) {
+		unsigned char c = *data++;
+		printf("%02x", c);
+	    }
+	    printf("\n");
 	    break;
     }
     if (op == 0)
