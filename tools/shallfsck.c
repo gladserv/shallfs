@@ -118,7 +118,10 @@ static void show_progress(int pass, int change) {
     } else {
 	snprintf(buf, sizeof(buf), "%d %d %d %s\n",
 		 pass, last_progress, end_progress, device);
-	write(progress, buf, strlen(buf));
+	if (write(progress, buf, strlen(buf)) < 0) {
+	    /* nothing but otherwise gcc complains about ignoring
+	     * return value of write() */
+	}
     }
 }
 

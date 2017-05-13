@@ -59,6 +59,8 @@ int shall_log_2a(struct shall_fsinfo *, int operation,
 #define shall_log_debug(fi, message) \
 	if (IS_DEBUG((fi))) \
 		shall_log_2n((fi), 0, (message), __FILE__, __LINE__)
+
+/* "debugging" version of memory allocation functions */
 static __always_inline void *__shall_kmalloc(struct shall_fsinfo *fi,
 					     size_t size, gfp_t flags,
 					     const char * file, int line)

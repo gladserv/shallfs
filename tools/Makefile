@@ -1,4 +1,4 @@
-all : mkshallfs readshallfs shallfsck
+all : mkshallfs readshallfs shallfsck shalluserlog
 
 CFLAGS += -D_FILE_OFFSET_BITS=64 -I../include -I../shallfs -Wall -O2
 
@@ -20,9 +20,15 @@ shallfsck : shallfsck.o shallfs-common.o
 shallfsck.o : shallfsck.c shallfs-common.h
 	$(CC) $(CFLAGS) -c -o shallfsck.o shallfsck.c
 
+shalluserlog : shalluserlog.o shallfs-common.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o shalluserlog shalluserlog.o shallfs-common.o
+
+shalluserlog.o : shalluserlog.c shallfs-common.h
+	$(CC) $(CFLAGS) -c -o shalluserlog.o shalluserlog.c
+
 shallfs-common.o : shallfs-common.c shallfs-common.h
 	$(CC) $(CFLAGS) -c -o shallfs-common.o shallfs-common.c
 
 clean :
-	rm -f *.o mkshallfs readshallfs
+	rm -f *.o mkshallfs readshallfs shallfsck shalluserlog
 

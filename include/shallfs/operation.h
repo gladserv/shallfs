@@ -28,6 +28,8 @@ enum shall_operation {
 	SHALL_SET_XATTR,
 	SHALL_DEL_XATTR,
 
+	SHALL_USERLOG,
+
 	SHALL_MAX_OPCODE
 };
 

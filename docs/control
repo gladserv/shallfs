@@ -90,3 +90,13 @@ clear NUMBER
 	means that this command can be used to unblock a heavily loaded
 	system with lots of processes waiting for space to write their logs.
 
+userlog TEXT
+	Adds TEXT to the filesystem log, as a "user log".  This will be
+	displayed by readshallfs, but is not interpreted in any way.
+	Currently, TEXT can be at most 128 characters.
+
+The "shalluserlog" program sends a "userlog" command to a mounted file system,
+usage: shalluserlog /path/to/mountpoint 'TEXT'
+or:    shalluserlog /dev/DEVICE 'TEXT'
+This is just a convenience, as one can also "echo 'userlog TEXT' > /proc/..."
+

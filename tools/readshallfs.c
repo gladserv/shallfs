@@ -488,7 +488,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	    }
 	} else if (! S_ISBLK(sbuff.st_mode)) {
-	    fprintf(stderr, "%s: %s: not a block device\n", pname, device);
+	    fprintf(stderr, "%s: %s: not a block device or directory\n",
+		    pname, device);
 	    return 1;
 	}
 	if (! shall_mounted_info(sbuff.st_rdev, &sb)) {
@@ -500,7 +501,7 @@ int main(int argc, char *argv[]) {
 	    fd = shall_open_logfile(sbuff.st_rdev, blocking, debug_prog);
 	else
 	    fd = 0;
-    } else if (input){
+    } else if (input) {
 	fd = open(device, O_RDONLY);
 	all_logs = 1;
     } else {

@@ -40,6 +40,8 @@ const struct shall_opdata shall_opdata[SHALL_MAX_OPCODE] = {
 	[SHALL_SET_ACL]		= { "SET_ACL",   1, SHALL_LOG_ACL },
 	[SHALL_SET_XATTR]	= { "SET_XATTR", 1, SHALL_LOG_XATTR },
 	[SHALL_DEL_XATTR]	= { "DEL_XATTR", 1, SHALL_LOG_XATTR },
+
+	[SHALL_USERLOG]		= { "USER_LOG",  1, SHALL_LOG_NODATA },
 };
 
 #endif /* _SHALLFS_OPDATA_H_ */

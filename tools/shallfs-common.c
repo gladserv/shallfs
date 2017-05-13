@@ -15,9 +15,23 @@
 #include "shallfs-common.h"
 
 #define PROCMOUNTS "/proc/fs/shallfs/mounted"
-#define PROCDIR "/proc/fs/shallfs/%x:%x"
-#define PROCINFO "info"
-#define PROCLOGS "blog"
+#define PROCDIR    "/proc/fs/shallfs/%x:%x"
+#define PROCINFO   "info"
+#define PROCLOGS   "blog"
+#define PROCCTRL   "ctrl"
+
+typedef enum {
+    proc_control,
+    proc_blocking,
+    proc_nonblocking,
+    proc_mode_MAX
+} proc_mode_t;
+
+static int proc_mode[proc_mode_MAX] = {
+    [proc_control]     = O_WRONLY,
+    [proc_blocking]    = O_RDONLY | O_NONBLOCK,
+    [proc_nonblocking] = O_RDONLY,
+};
 
 typedef struct {
     char name;
@@ -578,11 +592,15 @@ ssize_t shall_read_logs(int fd, shall_sb_data_t * sb,
 }
 
 /* open a file in /proc/fs/shallfs/DEVICE */
-static int open_proc(dev_t dev, const char * name, int blocking) {
+static int open_proc(dev_t dev, const char * name, proc_mode_t mode) {
     char procfile[sizeof(PROCDIR) + strlen(name) + 32];
+    if (mode >= proc_mode_MAX || (int)mode < 0) {
+	errno = -EINVAL;
+	return -1;
+    }
     snprintf(procfile, sizeof(procfile), PROCDIR "/%s",
 	     major(dev), minor(dev), name);
-    return open(procfile, O_RDONLY | (blocking ? 0 : O_NONBLOCK));
+    return open(procfile, proc_mode[mode]);
 }
 
 static int find_kw(const char * data, int datalen,
@@ -599,7 +617,7 @@ static int find_kw(const char * data, int datalen,
 int shall_mounted_info(dev_t dev, shall_sb_data_t * sb) {
     char buffer[4097];
     ssize_t nr;
-    int fd = open_proc(dev, PROCINFO, 1), ptr;
+    int fd = open_proc(dev, PROCINFO, proc_blocking), ptr;
     if (fd < 0) return 0;
     nr = read(fd, buffer, sizeof(buffer));
     if (nr <= 0) {
@@ -641,6 +659,36 @@ int shall_mounted_info(dev_t dev, shall_sb_data_t * sb) {
 
 /* open mounted filesystem's logfile */
 int shall_open_logfile(dev_t dev, int blocking, int verbose) {
-    return open_proc(dev, PROCLOGS, blocking);
+    return open_proc(dev, PROCLOGS, blocking ? proc_blocking : proc_nonblocking);
+}
+
+/* send a command to a mounted filesystem */
+static int shall_ctrl(dev_t dev, const char * command) {
+    int fd = open_proc(dev, PROCCTRL, proc_control);
+    if (fd < 0) return 0;
+    if (write(fd, command, strlen(command)) < 0) {
+	int sverr = errno;
+	close(fd);
+	errno = sverr;
+	return 0;
+    }
+    if (close(fd) < 0) return 0;
+    return 1;
+}
+
+int shall_ctrl_commit(dev_t dev) {
+    return shall_ctrl(dev, "commit\n");
+}
+
+int shall_ctrl_clear(dev_t dev, int discard) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "clear %d\n", discard);
+    return shall_ctrl(dev, buffer);
+}
+
+int shall_ctrl_userlog(dev_t dev, const char * text) {
+    char buffer[144];
+    snprintf(buffer, sizeof(buffer), "userlog %.128s\n", text);
+    return shall_ctrl(dev, buffer);
 }
 

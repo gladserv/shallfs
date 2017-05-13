@@ -1,0 +1,12 @@
+shalluserlog
+------------
+
+This program locates a mounted shall filesystem and adds a "user log"
+message to it.
+
+Usage: shalluserlog PATH MESSAGE
+
+PATH is the path to the mounted filesystem, or a device file (in /dev)
+
+MESSAGE is the user log to add
+

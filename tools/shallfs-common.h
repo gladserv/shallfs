@@ -139,4 +139,9 @@ int shall_mounted_info(dev_t, shall_sb_data_t *);
 /* open mounted filesystem's logfile */
 int shall_open_logfile(dev_t, int blocking, int verbose);
 
+/* send a command to a mounted filesystem */
+int shall_ctrl_commit(dev_t);
+int shall_ctrl_clear(dev_t, int);
+int shall_ctrl_userlog(dev_t, const char *);
+
 #endif /* _SHALL_H_ */

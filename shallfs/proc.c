@@ -417,7 +417,7 @@ static unsigned int ctrl_poll(struct file *file, poll_table *poll) {
 static ssize_t ctrl_write(struct file *file, const char __user *buf,
 			  size_t count, loff_t *pos)
 {
-	char copy[42];
+	char copy[144];
 	struct shall_proc_user * li = file->private_data;
 	struct shall_fsinfo * fi = li->fi;
 	size_t done = 0, err = 0;
@@ -472,6 +472,12 @@ static ssize_t ctrl_write(struct file *file, const char __user *buf,
 					done = err;
 			}
 			goto unlock;
+		}
+		if (strcmp(copy, "userlog", 7) == 0) {
+		    const char * data = copy + 7;
+		    if (*data && isspace(*data)) data++;
+		    shall_log_1n(fi, SHALL_USERLOG, data, 0);
+		    goto unlock;
 		}
 		/* invalid command */
 		err = -EINVAL;
