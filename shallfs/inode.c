@@ -9,6 +9,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/uio.h>
 #include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
@@ -416,12 +417,37 @@ static loff_t shall_llseek(struct file *file, loff_t pos, int whence) {
 static ssize_t shall_read(struct file *file, char __user *dest,
 			  size_t len, loff_t *pos)
 {
+	struct shall_file_data * fd = file->private_data;
+	if (! fd) return 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 	/* use vfs_read rather than the underlying fop->read,
 	 * because the filesystem may implement aio_read or read_iter
 	 * instead of read */
-	struct shall_file_data * fd = file->private_data;
-	if (! fd) return 0;
 	return vfs_read(fd->file, dest, len, pos);
+#else
+	/* vfs_read is no longer exported to modules, and kernel_read
+	 * expects a kernel pointer, so we have to re-do work already
+	 * done by vfs_read; at least we don't need to verify the buffer
+	 * as our caller has done that already */
+	if (fd->file->f_op->read)
+		return fd->file->f_op->read(fd->file, dest, len, pos);
+	if (fd->file->f_op->read_iter) {
+		struct iovec iov = {
+			.iov_base = (void __user *)dest,
+			.iov_len = len
+		};
+		struct kiocb kiocb;
+		struct iov_iter iter;
+		ssize_t ret;
+		init_sync_kiocb(&kiocb, fd->file);
+		kiocb.ki_pos = *pos;
+		iov_iter_init(&iter, READ, &iov, 1, len);
+		ret = call_read_iter(fd->file, &kiocb, &iter);
+		*pos = kiocb.ki_pos;
+		return ret;
+	}
+	return -ENOSYS;
+#endif
 }
 
 /* emit a cached WRITE log */
@@ -485,9 +511,6 @@ static ssize_t log_write_data(struct shall_fsinfo *fi,
 static ssize_t shall_write(struct file *file, const char __user *src,
 			   size_t len, loff_t *pos)
 {
-	/* use vfs_write rather than the underlying fop->write,
-	 * because the filesystem may implement aio_write or write_iter
-	 * instead of write */
 	struct shall_file_data * fd = file->private_data;
 	struct shall_fsinfo * fi = fd->fi;
 	loff_t oldpos = *pos;
@@ -510,7 +533,37 @@ static ssize_t shall_write(struct file *file, const char __user *src,
 		if (res) return res;
 		log_mode = shall_log_none; /* no need to log data twice */
 	}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+	/* use vfs_write rather than the underlying fop->write,
+	 * because the filesystem may implement aio_write or write_iter
+	 * instead of write */
 	res = vfs_write(fd->file, src, len, pos);
+#else
+	/* vfs_write is no longer exported to modules, and kernel_write
+	 * expects a kernel pointer, so we have to re-do work already
+	 * done by vfs_write; at least we don't need to verify the buffer
+	 * as our caller has done that already */
+	if (fd->file->f_op->write) {
+		res = fd->file->f_op->write(fd->file, src, len, pos);
+	} else if (fd->file->f_op->write_iter) {
+		struct iovec iov = {
+			.iov_base = (void __user *)src,
+			.iov_len = len
+		};
+		struct kiocb kiocb;
+		struct iov_iter iter;
+		ssize_t ret;
+		init_sync_kiocb(&kiocb, fd->file);
+		kiocb.ki_pos = *pos;
+		iov_iter_init(&iter, WRITE, &iov, 1, len);
+		ret = call_write_iter(fd->file, &kiocb, &iter);
+		if (ret > 0)
+			*pos = kiocb.ki_pos;
+	} else {
+		/* sorry... */
+		res = -ENOSYS;
+	}
+#endif
 	if (IS_LOG_AFTER(fi) && log_writes(fd)) {
 		if (res < 0 || log_mode != shall_log_op) {
 			res = log_write_data(fi, fd, log_mode, SHALL_WRITE,
