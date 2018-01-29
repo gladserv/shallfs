@@ -53,7 +53,7 @@ int shall_commit_thread(void * _fi) {
 		signed long timediff, timeout;
 		/* figure out how long ago a commit happened, and schedule
 		 * a timeout to wait for the next time a commit is due */
-		now = current_fs_time(fi->sb);
+		now = current_kernel_time();
 		timediff = now.tv_sec - fi->sbi.rw.other.last_commit;
 		timeout = fi->options.commit_seconds - timediff;
 		if (timeout > 0) goto wait_timeout;
@@ -537,7 +537,7 @@ static void log_overflow(struct shall_fsinfo *fi, int space) {
 		       "did not keep space for overflow log\n");
 		return;
 	}
-	overflowed = current_fs_time(fi->sb);
+	overflowed = current_kernel_time();
 	need_commit(fi, next_header);
 	ovh.next_header = cpu_to_le32(next_header);
 	ovh.operation = cpu_to_le32(SHALL_OVERFLOW);
@@ -566,7 +566,7 @@ static int append_logs(struct shall_fsinfo *fi, int operation, int result,
 {
 	struct shall_devheader lh;
 	struct shall_devfileid dih;
-	struct timespec requested = current_fs_time(fi->sb);
+	struct timespec requested = current_kernel_time();
 	unsigned int next_header, required, padding;
 	int err, data, dataflag;
 retry_logging:
@@ -993,7 +993,7 @@ static void shall_log_recovery(struct shall_fsinfo *fi) {
 	fi->lq.extra_space = 0;
 	fi->lq.num_dropped = 0;
 	spin_unlock(&fi->lq.log_queue.lock);
-	recovered = current_fs_time(fi->sb);
+	recovered = current_kernel_time();
 	need_commit(fi, next_header);
 	dsh.size = cpu_to_le64(extra_space);
 	sh.next_header = cpu_to_le32(next_header);

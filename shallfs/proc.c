@@ -230,7 +230,7 @@ static int info_open(struct inode *inode, struct file *file) {
 		mutex_unlock(&fi->sbi.mutex);
 		return -ENOMEM;
 	}
-	info->mounted = timespec_sub(current_fs_time(inode->i_sb),
+	info->mounted = timespec_sub(current_kernel_time(),
 				     fi->sbi.ro.mounted);
 	info->version = fi->sbi.rw.other.version;
 	info->logged = fi->sbi.rw.other.logged;

@@ -359,7 +359,7 @@ int shall_write_data(struct shall_fsinfo *fi, int locked, int why, int sync) {
 		if (! locked) mutex_lock(&fi->sbi.mutex);
 		if (fi->sbi.rw.read.committed >= fi->sbi.rw.read.data_length) {
 			/* all done */
-			struct timespec now = current_fs_time(fi->sb);
+			struct timespec now = current_kernel_time();
 			fi->sbi.rw.other.last_commit = now.tv_sec;
 			fi->sbi.rw.read.buffer_read = 0;
 			fi->sbi.rw.read.buffer_written = 0;

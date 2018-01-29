@@ -722,6 +722,8 @@ out:
 }
 
 /* get attributes */
+/* we'll need to see exactly which kernel version for this... XXX */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 static int shall_getattr(struct vfsmount *mnt, struct dentry *dentry,
 			 struct kstat *kstat)
 {
@@ -736,6 +738,23 @@ static int shall_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	if (! err) kstat->dev = mnt->mnt_sb->s_dev;
 	return err;
 }
+#else
+static int shall_getattr(const struct path * path, struct kstat *kstat,
+			 u32 request_mask, unsigned int query_flags)
+{
+	struct path upath;
+	struct dentry * dentry = path->dentry;
+	struct shall_fsinfo * fi = path->mnt->mnt_sb->s_fs_info;
+	int err;
+	if (unlikely(! dentry || ! dentry->d_inode || ! dentry->d_inode->i_private))
+		return -EINVAL;
+	upath.dentry = dentry->d_inode->i_private;
+	upath.mnt = fi->root_path.mnt;
+	err = vfs_getattr(&upath, kstat, request_mask, query_flags);
+	if (! err) kstat->dev = path->mnt->mnt_sb->s_dev;
+	return err;
+}
+#endif
 
 static struct posix_acl * shall_get_acl(struct inode *inode, int type) {
 	struct dentry * u_dentry = inode->i_private;

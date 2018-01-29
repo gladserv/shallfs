@@ -28,6 +28,7 @@
 #include <linux/mount.h>
 #include <linux/blkdev.h>
 #include <linux/posix_acl.h>
+#include <linux/version.h>
 #include <shallfs/operation.h>
 #include <shallfs/device.h>
 #include "shallfs.h"
@@ -36,6 +37,15 @@
 #include "proc.h"
 #include "device.h"
 #include "super.h"
+
+/* we need to get a timestamp for various places, and newer versions
+ * require an inode rather than a superblock - and here we don't have
+ * inodes... */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+#define SB_TIME(sb) current_fs_time(sb)
+#else
+#define SB_TIME(sb) current_kernel_time()
+#endif
 
 #define SHALL_SB_MAGIC "SHALL 01"
 #define SHALL_MAGIC 0x304c4853
@@ -506,7 +516,7 @@ static int shall_sync_fs(struct super_block *sb, int wait) {
 	int n_sb, err1, err2;
 	mutex_lock(&fi->sbi.mutex);
 	err1 = shall_write_data(fi, 1, 2, 1);
-	now = current_fs_time(fi->sb);
+	now = SB_TIME(fi->sb);
 	n_sb = ++fi->sbi.rw.other.last_sb_written;
 	fi->sbi.rw.other.last_commit = now.tv_sec;
 	fi->sbi.rw.other.version++;
@@ -527,7 +537,7 @@ static int shall_freeze_fs(struct super_block *sb) {
 	int n_sb, err1, err2;
 	mutex_lock(&fi->sbi.mutex);
 	err1 = shall_write_data(fi, 1, 2, 1);
-	now = current_fs_time(fi->sb);
+	now = SB_TIME(fi->sb);
 	n_sb = fi->sbi.rw.other.last_sb_written;
 	fi->sbi.rw.other.last_sb_written = 0;
 	fi->sbi.rw.other.last_commit = now.tv_sec;
@@ -549,7 +559,7 @@ static int shall_unfreeze_fs(struct super_block *sb) {
 	struct shall_fsinfo * fi = (struct shall_fsinfo *)sb->s_fs_info;
 	int err;
 	mutex_lock(&fi->sbi.mutex);
-	now = current_fs_time(fi->sb);
+	now = SB_TIME(fi->sb);
 	fi->sbi.rw.other.last_sb_written = 1;
 	fi->sbi.rw.other.last_commit = now.tv_sec;
 	fi->sbi.rw.other.version++;
@@ -1009,8 +1019,8 @@ static int shall_fill_super(struct super_block *sb, void *data, int silent) {
 	if (err) goto out_vfree_commit;
 	/* initialise remaining bits of fi */
 	sb->s_time_gran = 1;
-	now = current_fs_time(sb);
-	fi->sbi.ro.mounted = current_fs_time(sb);
+	now = SB_TIME(sb);
+	fi->sbi.ro.mounted = now;
 	fi->sbi.ro.maxptr.block = fi->sbi.ro.data_space / SHALL_DEV_BLOCK;
 	fi->sbi.ro.maxptr.n_super = fi->sbi.ro.num_superblocks;
 	fi->sbi.ro.maxptr.offset = SHALL_DEV_BLOCK;
