@@ -25,6 +25,9 @@
 #include <linux/seq_file.h>
 #include <linux/xattr.h>
 #include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 16, 0)
+#include <linux/iversion.h>
+#endif
 #include <shallfs/operation.h>
 #include <shallfs/device.h>
 #include "shallfs.h"
