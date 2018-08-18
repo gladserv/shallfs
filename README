@@ -24,7 +24,13 @@ Then "modprobe shallfs" (or just "mount -tshallfs" will autoload the module)
 
 To use:
 
-see docs/0README and other files in docs/
+Build and install the userspace tools:
+
+make -C tools
+make -C tools install PREFIX=/usr/local
+
+see docs/0README and other files in docs/ for how to use the tools, mount the
+filesystem, etc
 
 To install an updated copy of shallfs in a kernel tree already patched use
 "update" instead of "install":
