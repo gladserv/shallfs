@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
+#include <sys/sysmacros.h>
 #include "shallfs-common.h"
 
 #define PROCMOUNTS "/proc/fs/shallfs/mounted"

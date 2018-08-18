@@ -65,6 +65,12 @@
 #define SHALL_USE_OLD_XATTR_CODE 0
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+typedef struct timespec struct_timespec;
+#else
+typedef struct timespec64 struct_timespec;
+#endif
+
 /* how do we log writes? */
 typedef enum {
     shall_log_none,                     /* no logging for this file */
@@ -372,8 +378,10 @@ static int make_node(struct inode *dir, struct dentry *dentry, umode_t mode,
 		} else {
 			attr.user = i_uid_read(inode);
 			attr.group = i_gid_read(inode);
-			attr.atime = inode->i_atime;
-			attr.mtime = inode->i_mtime;
+			attr.atime_sec = inode->i_atime.tv_sec;
+			attr.atime_nsec = inode->i_atime.tv_nsec;
+			attr.mtime_sec = inode->i_mtime.tv_sec;
+			attr.mtime_nsec = inode->i_mtime.tv_nsec;
 			attr.flags |= shall_attr_user
 				   |  shall_attr_group
 				   |  shall_attr_atime
@@ -698,11 +706,13 @@ static int shall_setattr(struct dentry *dentry, struct iattr *iattr) {
 	}
 	if (iattr->ia_valid & ATTR_ATIME) {
 		attr.flags |= shall_attr_atime;
-		attr.atime = iattr->ia_atime;
+		attr.atime_sec = iattr->ia_atime.tv_sec;
+		attr.atime_nsec = iattr->ia_atime.tv_nsec;
 	}
 	if (iattr->ia_valid & ATTR_MTIME) {
 		attr.flags |= shall_attr_mtime;
-		attr.mtime = iattr->ia_mtime;
+		attr.mtime_sec = iattr->ia_mtime.tv_sec;
+		attr.mtime_nsec = iattr->ia_mtime.tv_nsec;
 	}
 	if (IS_LOG_BEFORE(fi) && attr.flags) {
 		err = shall_log_1a(fi, -SHALL_META, path, &attr, 0);
@@ -720,7 +730,7 @@ out:
 }
 
 /* update file times, a subset of setattr but handled specially */
-static int shall_update_time(struct inode *inode, struct timespec *tm, int fl) {
+static int shall_update_time(struct inode *inode, struct_timespec *tm, int fl) {
 	struct shall_attr attr;
 	struct shall_fsinfo * fi = inode->i_sb->s_fs_info;
 	struct dentry * u_dentry = inode->i_private;
@@ -740,14 +750,16 @@ static int shall_update_time(struct inode *inode, struct timespec *tm, int fl) {
 	attr.flags = 0;
 	if (fl & S_ATIME) {
 		attr.flags |= shall_attr_atime;
-		attr.atime = *tm;
+		attr.atime_sec = tm->tv_sec;
+		attr.atime_nsec = tm->tv_nsec;
 		inode->i_atime = *tm;
 	}
 	if (fl & S_VERSION)
 		inode_inc_iversion(inode);
 	if (fl & S_MTIME) {
 		attr.flags |= shall_attr_mtime;
-		attr.mtime = *tm;
+		attr.mtime_sec = tm->tv_sec;
+		attr.mtime_nsec = tm->tv_nsec;
 		inode->i_mtime = *tm;
 	}
 	if (fl & S_CTIME)
@@ -994,8 +1006,10 @@ static int shall_symlink(struct inode *dir, struct dentry *dentry,
 		attr.mode = inode->i_mode;
 		attr.user = i_uid_read(inode);
 		attr.group = i_gid_read(inode);
-		attr.atime = inode->i_atime;
-		attr.mtime = inode->i_mtime;
+		attr.atime_sec = inode->i_atime.tv_sec;
+		attr.atime_nsec = inode->i_atime.tv_nsec;
+		attr.mtime_sec = inode->i_mtime.tv_sec;
+		attr.mtime_nsec = inode->i_mtime.tv_nsec;
 		attr.flags |= shall_attr_mode
 			   |  shall_attr_user
 			   |  shall_attr_group

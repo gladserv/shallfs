@@ -829,10 +829,10 @@ static inline void mkattr(struct shall_devattr * da,
 	} else {
 		da->size = cpu_to_le64(attr->size);
 	}
-	da->atime_sec = cpu_to_le64(attr->atime.tv_sec);
-	da->atime_nsec = cpu_to_le32(attr->atime.tv_nsec);
-	da->mtime_sec = cpu_to_le64(attr->mtime.tv_sec);
-	da->mtime_nsec = cpu_to_le32(attr->mtime.tv_nsec);
+	da->atime_sec = cpu_to_le64(attr->atime_sec);
+	da->atime_nsec = cpu_to_le32(attr->atime_nsec);
+	da->mtime_sec = cpu_to_le64(attr->mtime_sec);
+	da->mtime_nsec = cpu_to_le32(attr->mtime_nsec);
 }
 
 /* log an event with 1 filename and an "attr" structure */

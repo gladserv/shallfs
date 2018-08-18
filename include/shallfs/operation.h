@@ -80,8 +80,13 @@ struct shall_attr {
 		off_t size;             /* for META, if the operation
 					 *           was truncate */
 	};
-	struct timespec atime;
-	struct timespec mtime;
+	/* we need to work around some kernels which use timespec64 vs timespec
+	 * and we can't make this dependent on kernel version because it's
+	 * shared with userspace */
+	time_t atime_sec;
+	long atime_nsec;
+	time_t mtime_sec;
+	long mtime_nsec;
 };
 
 /* ACL flags; the actual ACL data is provided using the system's ACL
