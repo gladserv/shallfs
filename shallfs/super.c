@@ -40,8 +40,8 @@
 
 /* we need to get a timestamp for various places, and newer versions
  * require an inode rather than a superblock - and here we don't have
- * inodes... */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+ * inodes... XXX - check exactly in which version this changed */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
 #define SB_TIME(sb) current_fs_time(sb)
 #else
 #define SB_TIME(sb) current_kernel_time()

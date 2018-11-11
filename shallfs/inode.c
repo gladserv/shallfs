@@ -791,7 +791,7 @@ out:
 
 /* get attributes */
 /* we'll need to see exactly which kernel version for this... XXX */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 static int shall_getattr(struct vfsmount *mnt, struct dentry *dentry,
 			 struct kstat *kstat)
 {
