@@ -430,10 +430,11 @@ static ssize_t shall_read(struct file *file, char __user *dest,
 {
 	struct shall_file_data * fd = file->private_data;
 	if (! fd) return 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	/* use vfs_read rather than the underlying fop->read,
 	 * because the filesystem may implement aio_read or read_iter
-	 * instead of read */
+	 * instead of read XXX need to figure out which version stopped
+	 * exporting vfs_read() */
 	return vfs_read(fd->file, dest, len, pos);
 #else
 	/* vfs_read is no longer exported to modules, and kernel_read
@@ -544,10 +545,11 @@ static ssize_t shall_write(struct file *file, const char __user *src,
 		if (res) return res;
 		log_mode = shall_log_none; /* no need to log data twice */
 	}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	/* use vfs_write rather than the underlying fop->write,
 	 * because the filesystem may implement aio_write or write_iter
-	 * instead of write */
+	 * instead of write XXX need to check which exact kernel version
+	 * stopped exporting vfs_write() */
 	res = vfs_write(fd->file, src, len, pos);
 #else
 	/* vfs_write is no longer exported to modules, and kernel_write
