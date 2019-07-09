@@ -1,0 +1,40 @@
+To install:
+
+Unpack the distribution or copy the sources to some directory, we
+use /usr/src/shall here
+
+Change directory to the root of your Linux kernel tree, for example:
+cd /usr/src/linux
+
+Install the "shall" sources:
+/usr/src/shall/install
+
+Configure your kernel to include the shall filesystem:
+make menuconfig
+  File systems  --->
+    Pseudo filesystems  --->
+      <M> The shall filesystem
+      [*]   shall filesystem debugging support
+
+make
+make install
+make modules_install
+
+Then "modprobe shallfs" (or just "mount -tshallfs" will autoload the module)
+
+To use:
+
+Build and install the userspace tools:
+
+make -C tools
+make -C tools install PREFIX=/usr/local
+
+see docs/0README and other files in docs/ for how to use the tools, mount the
+filesystem, etc
+
+To install an updated copy of shallfs in a kernel tree already patched use
+"update" instead of "install":
+cd /usr/src/linux
+/usr/src/shall/update
+make
+

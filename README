@@ -1,40 +1,73 @@
-To install:
+shallfs
+-------
 
-Unpack the distribution or copy the sources to some directory, we
-use /usr/src/shall here
+shallfs is a Linux kernel module which logs any operation which may cause
+modifications.  This includes file writes, create/delete/rename, but also
+metadata change (access and modification time, permissions, POSIX ACLs,
+extended attributes).  Versions for other operating systems may be made
+available in future.
 
-Change directory to the root of your Linux kernel tree, for example:
-cd /usr/src/linux
+The module does not, by itself, manage any files; it must be given an
+"underlying filesystem" specified using the "fs" mount option, where the
+data will actually be; shallfs will just log operations and pass them along.
 
-Install the "shall" sources:
-/usr/src/shall/install
+The shallfs filesystem requires a block device where the operation log is
+kept (this is referred to as the journal or the event log).  When not mounted,
+the device can be accessed directly, and utilities such as "shallfsck" (check
+and repair) and "readfsck" (read and print/save logs) help with that; before
+using a device with shallfs it must be prepared using mkshallfs.  For
+convenience, interface programs allow to say "mkfs -t shallfs" instead of
+"mkshallfs" and "fsck -t shallfs" instead of "shallfsck"; however such
+interface scripts by necessity limit command line options to what is
+understood by "mkfs" and "fsck": if required, use the programs directly.
 
-Configure your kernel to include the shall filesystem:
-make menuconfig
-  File systems  --->
-    Pseudo filesystems  --->
-      <M> The shall filesystem
-      [*]   shall filesystem debugging support
+Direct access to the underlying filesystem, without being logged by shallfs,
+is normally possible by using the appropriate path; for example, after:
 
-make
-make install
-make modules_install
+    mount -t shallfs -o fs=/real_home /dev/shallfs-device /home
 
-Then "modprobe shallfs" (or just "mount -tshallfs" will autoload the module)
+Any file access under /home will log each operation and then "forwards" it
+to the corresponding file under /real_home; however file access directly
+to files under /real_home is permitted and won't be logged; care must be
+taken as operations such as renames may result in an inconsistent state
+if done directly on the underlying filesystem, as shallfs may have the
+old path in its memory buffers: this in itself will not result in data
+corruption, however accessing files via an unexpected path may have
+undesirable results.
 
-To use:
+Under Linux, it is possible for a mounted filesystem to completely hide
+another one, so it is possible to prevent direct access to the underlying
+filesystem by mounting shallfs over it:
 
-Build and install the userspace tools:
+    mount -t shallfs -o fs=/home /dev/shallfs-device /home
 
-make -C tools
-make -C tools install PREFIX=/usr/local
+After this, any operation under /home will log the operation to the device
+specified, and then do the operation on the "real" /home, which will be
+whatever appeared in /home before the mount.  In other word, any user
+program will not observe any difference between the access to /home
+before and after the mount (except possibly for a delay if the device
+becomes full and the logs must be saved elsewhere and cleared).  Note
+however that any files open on /home before the mount will still refer
+to the underlying filesystem directly, only opens after the mount will
+refer to the filesystem as mediated by shallfs (and this also explains
+why it works: the module opens the underlying directory before the mount
+completes, so it can access it and any files inside it).
 
-see docs/0README and other files in docs/ for how to use the tools, mount the
-filesystem, etc
+IT IS ABSOLUTELY ESSENTIAL THAT THE UNDERLYING FILESYSTEM DOES NOT HAVE
+HARD LINKS TO DIRECTORIES except for the system-generated "." and ".."
+entries in each directory.  Most of the code assumes that there is a
+direct correspondence between filesystem paths and directory inodes, and
+a hard link to directories will change that by having multiple paths to
+the same directory inode.  Consequences of this range from unexpected
+paths to data corruption and in extreme cases to system deadlock.  Note
+that the kernel itself does not guarantee correct operation in the presence
+of hard links to directories, so this isn't a bug we are likely to ever
+consider fixing.
 
-To install an updated copy of shallfs in a kernel tree already patched use
-"update" instead of "install":
-cd /usr/src/linux
-/usr/src/shall/update
-make
+Note that program execution on a shallfs filesystem currently does not
+work because mmap() is not implemented (scripts using an interpreter may
+work as long as the interpreter is loaded from another filesystem).
+A future version will implement read/exec only mmap(), which is sufficient
+for programs and shared libraries, however it is unlikely that writable
+mmap() will be implemented as it makes it impossible to log changes.
 
