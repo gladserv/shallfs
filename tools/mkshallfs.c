@@ -129,6 +129,7 @@ int main(int argc, char *argv[]) {
 	    fprintf(stderr, "%s: %s: invalid device size %s\n",
 		    pname, device, fs_size);
 	    close(fd);
+	    if (create_it && ! readonly) unlink(device);
 	    return 1;
 	}
 	if (create_it) {
@@ -145,6 +146,7 @@ int main(int argc, char *argv[]) {
 	    num_superblocks++;
 	if (num_superblocks < 8) {
 	    fprintf(stderr, "%s: %s: device too small\n", pname, device);
+	    if (create_it && ! readonly) unlink(device);
 	    close(fd);
 	    return 1;
 	}
@@ -153,6 +155,7 @@ int main(int argc, char *argv[]) {
 		    "%s: %s: some superblocks are past end of device\n",
 		    pname, device);
 	    close(fd);
+	    if (create_it && ! readonly) unlink(device);
 	    return 1;
     }
     if (! quiet) {
@@ -193,6 +196,7 @@ out_close:
     errno = sve;
 out_error:
     fprintf(stderr, "%s: %s: %s\n", pname, device, strerror(errno));
+    if (create_it && ! readonly) unlink(device);
     return 1;
 }
 

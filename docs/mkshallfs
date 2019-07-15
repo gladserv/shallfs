@@ -15,7 +15,9 @@ mkshallfs accepts the following options:
 -c  Create a regular file with an image of the filesystem.  The size
     must be specified on the command line after the device, e.g.
 	fsck -t shallfs -c DEVICE SIZE
-    this is incompatible with -n.
+    this is incompatible with -n.  The program will fail if the file
+    already exists.  If the file did not exist, and the program creates
+    it and then fails, it will try to delete it again.
 
 -a alignment
     Alignment of blocks in device; default 8; must be a power of 2 between
