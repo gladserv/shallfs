@@ -364,11 +364,14 @@ static int print_log(off_t where, const char * data, int count) {
     flags = le32toh(dh.flags);
     if (flags & SHALL_LOG_CREDS) {
 	getdata(dcreds);
-	printf("          UID %llu, EUID %llu, GID %llu, EGID %llu\n",
+	printf("          UID %llu, EUID %llu, FSUID %llu, "
+			 "GID %llu, EGID %llu, FSGID %llu\n",
 	       (long long unsigned int)le64toh(dcreds.uid),
 	       (long long unsigned int)le64toh(dcreds.euid),
+	       (long long unsigned int)le64toh(dcreds.fsuid),
 	       (long long unsigned int)le64toh(dcreds.gid),
-	       (long long unsigned int)le64toh(dcreds.egid));
+	       (long long unsigned int)le64toh(dcreds.egid),
+	       (long long unsigned int)le64toh(dcreds.fsgid));
     }
     if (flags & SHALL_LOG_FILE1) {
 	getdata(df);

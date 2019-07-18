@@ -82,9 +82,11 @@ struct shall_devheader {
 struct shall_devcreds {
 	__le64 uid;				/*   0: real UID */
 	__le64 euid;				/*   8: effective UID */
-	__le64 gid;				/*  16: real GID */
-	__le64 egid;				/*  24: effective GID */
-} __attribute__((packed));			/*  32 bytes */
+	__le64 fsuid;				/*  16: "FS" UID */
+	__le64 gid;				/*  24: real GID */
+	__le64 egid;				/*  32: effective GID */
+	__le64 fsgid;				/*  40: "FS" GID */
+} __attribute__((packed));			/*  48 bytes */
 
 /* on-disk number (fileid or filename length) format */
 struct shall_devfileid {

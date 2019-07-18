@@ -603,10 +603,14 @@ static int append_logs(struct shall_fsinfo *fi, int operation, int result,
 	dcreds.uid = cpu_to_le64(id);
 	SET_UID(id, kcreds->euid.val);
 	dcreds.euid = cpu_to_le64(id);
+	SET_UID(id, kcreds->fsuid.val);
+	dcreds.fsuid = cpu_to_le64(id);
 	SET_GID(id, kcreds->gid.val);
 	dcreds.gid = cpu_to_le64(id);
 	SET_GID(id, kcreds->egid.val);
 	dcreds.egid = cpu_to_le64(id);
+	SET_GID(id, kcreds->fsgid.val);
+	dcreds.fsgid = cpu_to_le64(id);
 retry_logging:
 	next_header = sizeof(lh) + sizeof(dcreds);;
 	err = data = 0;
