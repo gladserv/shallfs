@@ -35,6 +35,8 @@
 #include <linux/posix_acl.h>
 #include <linux/ctype.h>
 #include <linux/vmalloc.h>
+#include <linux/cred.h>
+#include <linux/highuid.h>
 #include <shallfs/operation.h>
 #include <shallfs/device.h>
 #include "shallfs.h"
@@ -584,11 +586,29 @@ static int append_logs(struct shall_fsinfo *fi, int operation, int result,
 {
 	struct shall_devheader lh;
 	struct shall_devfileid dih;
+	struct shall_devcreds dcreds;
 	struct timespec requested = current_kernel_time();
+	const struct cred * kcreds;
 	unsigned int next_header, required, padding;
 	int err, data, dataflag;
+	__le64 id;
+	/* we always log credentials; the flag is only there because logs
+	 * generated from older version didn't have them */
+	flags |= SHALL_LOG_CREDS;
+	memset(&dcreds, 0, sizeof(dcreds));
+	kcreds = current_cred();
+	// XXX we probably need to convert the uids and gids using
+	// XXX kcreds->user_namespace; this is a first approximation logging
+	SET_UID(id, kcreds->uid.val);
+	dcreds.uid = cpu_to_le64(id);
+	SET_UID(id, kcreds->euid.val);
+	dcreds.euid = cpu_to_le64(id);
+	SET_GID(id, kcreds->gid.val);
+	dcreds.gid = cpu_to_le64(id);
+	SET_GID(id, kcreds->egid.val);
+	dcreds.egid = cpu_to_le64(id);
 retry_logging:
-	next_header = sizeof(lh);
+	next_header = sizeof(lh) + sizeof(dcreds);;
 	err = data = 0;
 	if (flags & SHALL_LOG_FILE1) {
 		next_header += sizeof(dih) + dlen[0];
@@ -720,6 +740,8 @@ retry_size_check:
 	 * the device, and we have the mutex, time to store all that data */
 	need_commit(fi, next_header);
 	add_blob(fi, &lh, sizeof(lh));
+	if (flags & SHALL_LOG_CREDS)
+		add_blob(fi, &dcreds, sizeof(dcreds));
 	if (flags & SHALL_LOG_FILE1) {
 		dih.fileid = cpu_to_le32(dlen[0]);
 		add_blob(fi, &dih, sizeof(dih));
@@ -1217,6 +1239,7 @@ ssize_t shall_print_logs(struct shall_fsinfo *fi,
 	struct shall_devacl dlh;
 	struct shall_devxattr dxh;
 	struct shall_devhash dhh;
+	struct shall_devcreds credh;
 	void * freeit = NULL;
 	ssize_t done = 0, err = 0;
 	if (space < 1) return 0;
@@ -1228,12 +1251,20 @@ ssize_t shall_print_logs(struct shall_fsinfo *fi,
 		struct shall_sbinfo_rw_read * file1 = NULL, * file2 = NULL;
 		int next_header, dataflag, s_count, d_space, remain, used;
 		int file1_length = 0, file2_length = 0, tot_len, rem_len;
+		struct shall_devcreds * creds = NULL;
 		save = fi->sbi.rw.read;
 		err = get_log_header(fi, &sh);
 		if (err <= 0) goto out_restore;
 		s_count = err;
 		d_space = 0;
 		next_header = sh.next_header;
+		/* if credentials are present, read them */
+		if (sh.flags & SHALL_LOG_CREDS) {
+			err = read_structure(credh);
+			if (err <= 0) goto out_restore;
+			s_count += err;
+			creds = &credh;
+		}
 		/* if file1 present, skip it but remember where it was */
 		if (sh.flags & SHALL_LOG_FILE1) {
 			err = read_structure(idh);
@@ -1359,6 +1390,10 @@ ssize_t shall_print_logs(struct shall_fsinfo *fi,
 				 sh.flags, &sh.requested, data_ptr);
 		if (used < 0) goto out_restore;
 		if (used >= remain) goto out_nospace;
+		/* if we have credentials available, store them */
+		if (creds) {
+			// XXX store credentials
+		}
 		/* if we need to store files, do so */
 		svtemp = fi->sbi.rw.read;
 		if (file1) {

@@ -334,6 +334,7 @@ static int print_log(off_t where, const char * data, int count) {
     struct shall_devacl dl;
     struct shall_devacl_entry de;
     struct shall_devxattr dx;
+    struct shall_devcreds dcreds;
     const char * ba, * name1 = "", * name2 = "";
     time_t req;
     int length, op, len1 = 0, len2 = 0, flags, result, n;
@@ -361,6 +362,14 @@ static int print_log(off_t where, const char * data, int count) {
 	       result);
     }
     flags = le32toh(dh.flags);
+    if (flags & SHALL_LOG_CREDS) {
+	getdata(dcreds);
+	printf("          UID %llu, EUID %llu, GID %llu, EGID %llu\n",
+	       (long long unsigned int)le64toh(dcreds.uid),
+	       (long long unsigned int)le64toh(dcreds.euid),
+	       (long long unsigned int)le64toh(dcreds.gid),
+	       (long long unsigned int)le64toh(dcreds.egid));
+    }
     if (flags & SHALL_LOG_FILE1) {
 	getdata(df);
 	len1 = le32toh(df.fileid);

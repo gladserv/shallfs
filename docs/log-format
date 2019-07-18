@@ -56,7 +56,15 @@ checksum
     A crc32 of the whole header, calculated with starting value
     0x4c414853 ("SHAL").
 
-Filenames, if present, follow immediately after the header using a
+Usually a set of "credentials" (PID, UID, GID) follow immediately
+after the header using a struct shall_devcreds; however logs written
+by older version may not have that, so check for flag SHALL_LOG_CREDS
+to determine if credentials are present; the structure also contains
+the effective UID and GID and the parent PID (this is because a process
+running shalluserlog will log with the PID of shalluserlog, and in
+this case the parent PID is who really generated the log).
+
+Filenames, if present, follow immediately after the credentials using a
 struct shall_devfileid to encode their length, and then the data (note
 that there is no terminating NUL).  Any other data follow the filenames
 using the appropriate format (struct shall_devregion, struct shall_devattr,

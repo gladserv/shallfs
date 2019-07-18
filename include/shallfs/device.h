@@ -78,6 +78,14 @@ struct shall_devheader {
 /* size of area to checksum */
 #define shall_devheader_checksize offsetof(struct shall_devheader, checksum)
 
+/* on-disk format for the credentials of the process making a request */
+struct shall_devcreds {
+	__le64 uid;				/*   0: real UID */
+	__le64 euid;				/*   8: effective UID */
+	__le64 gid;				/*  16: real GID */
+	__le64 egid;				/*  24: effective GID */
+} __attribute__((packed));			/*  32 bytes */
+
 /* on-disk number (fileid or filename length) format */
 struct shall_devfileid {
 	__le32 fileid;				/*   0: the number */

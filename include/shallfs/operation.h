@@ -60,6 +60,7 @@ enum shall_log_flags {
 	SHALL_LOG_NODATA	= 0x0000,	/* no data present */
 	SHALL_LOG_FILE1		= 0x0001,	/* file1 present */
 	SHALL_LOG_FILE2		= 0x0002,	/* file2 present */
+	SHALL_LOG_CREDS         = 0x0004,       /* credentials present */
 	SHALL_LOG_FILEID	= 0x0100,	/* fileid present */
 	SHALL_LOG_ATTR		= 0x0200,	/* attr present */
 	SHALL_LOG_XATTR		= 0x0400,	/* extended attribute present */

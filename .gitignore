@@ -7,4 +7,5 @@ tools/shallfsck
 tools/shallfsck.o
 tools/shalluserlog
 tools/shalluserlog.o
+.*.sw[po]
 

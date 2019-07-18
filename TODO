@@ -1,3 +1,4 @@
+* add logging of credentials in kernel code
 * retest symlink code on 4.4
 * retest symlink code on 4.9
 * retest xattr code on 4.9
