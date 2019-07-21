@@ -1,4 +1,7 @@
-* add logging of credentials in kernel code
+* add tests in testshallfs.c
+* list_mounts() does not understand mount namespaces; there need to be 2 ways
+  to call it, one as /proc/shallfs/mounted (as exists now) and another one
+  as /proc/PID/shallfs/mounted
 * retest symlink code on 4.4
 * retest symlink code on 4.9
 * retest xattr code on 4.9

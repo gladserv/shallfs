@@ -18,7 +18,7 @@
 # If not, see <http://www.gnu.org/licenses/>.
 
 
-all : mkshallfs readshallfs shallfsck shalluserlog
+all : mkshallfs readshallfs shallfsck shalluserlog testshallfs
 
 PREFIX = /usr/local
 
@@ -47,6 +47,12 @@ shalluserlog : shalluserlog.o shallfs-common.o
 
 shalluserlog.o : shalluserlog.c shallfs-common.h
 	$(CC) $(CFLAGS) -c -o shalluserlog.o shalluserlog.c
+
+testshallfs : testshallfs.o shallfs-common.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o testshallfs testshallfs.o shallfs-common.o
+
+testshallfs.o : testshallfs.c shallfs-common.h
+	$(CC) $(CFLAGS) -c -o testshallfs.o testshallfs.c
 
 shallfs-common.o : shallfs-common.c shallfs-common.h
 	$(CC) $(CFLAGS) -c -o shallfs-common.o shallfs-common.c
