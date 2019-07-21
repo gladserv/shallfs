@@ -2,6 +2,9 @@
 * list_mounts() does not understand mount namespaces; there need to be 2 ways
   to call it, one as /proc/shallfs/mounted (as exists now) and another one
   as /proc/PID/shallfs/mounted
+* allow shallfs to return logs to non-root user provided that the logged
+  UID is the same as the user requesting, or (controlled by a mount option)
+  the logged GID is in one of the user's groups, or the user has CAP_FOWNER
 * retest symlink code on 4.4
 * retest symlink code on 4.9
 * retest xattr code on 4.9
